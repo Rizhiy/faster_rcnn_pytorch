@@ -1,11 +1,10 @@
 import os
-import torch
 import cv2
 import cPickle
 import numpy as np
 
 from faster_rcnn import network
-from faster_rcnn.faster_rcnn import FasterRCNN, RPN
+from faster_rcnn.faster_rcnn import FasterRCNN
 from faster_rcnn.utils.timer import Timer
 from faster_rcnn.fast_rcnn.nms_wrapper import nms
 
@@ -13,12 +12,11 @@ from faster_rcnn.fast_rcnn.bbox_transform import bbox_transform_inv, clip_boxes
 from faster_rcnn.datasets.factory import get_imdb
 from faster_rcnn.fast_rcnn.config import cfg, cfg_from_file, get_output_dir
 
-
 # hyper-parameters
 # ------------
 imdb_name = 'caltech_test_1x'
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
-trained_model = 'models/saved_models/faster_rcnn_100000.h5'
+trained_model = 'models/saved_models/faster_rcnn_10000.h5'
 
 rand_seed = 42
 
@@ -43,23 +41,20 @@ def vis_detections(im, class_name, dets, thresh=0.8):
         score = dets[i, -1]
         if score > thresh:
             cv2.rectangle(im, bbox[0:2], bbox[2:4], (0, 204, 0), 2)
-            cv2.putText(im, '%s: %.3f' % (class_name, score), (bbox[0], bbox[1] + 15), cv2.FONT_HERSHEY_PLAIN,
-                        1.0, (0, 0, 255), thickness=1)
+            cv2.putText(im, '%s: %.3f' % (class_name, score), (bbox[0], bbox[1] + 15), cv2.FONT_HERSHEY_PLAIN, 1.0,
+                        (0, 0, 255), thickness=1)
     return im
 
 
 def im_detect(net, image):
     """Detect object classes in an image given object proposals.
     Returns:
-        scores (ndarray): R x K array of object class scores (K includes
-            background as object category 0)
+        scores (ndarray): R x K array of object class scores (K includes background as object category 0)
         boxes (ndarray): R x (4*K) array of predicted bounding boxes
     """
 
     im_data, im_scales = net.get_image_blob(image)
-    im_info = np.array(
-        [[im_data.shape[1], im_data.shape[2], im_scales[0]]],
-        dtype=np.float32)
+    im_info = np.array([[im_data.shape[1], im_data.shape[2], im_scales[0]]], dtype=np.float32)
 
     cls_prob, bbox_pred, rois = net(im_data, im_info)
     scores = cls_prob.data.cpu().numpy()
@@ -83,8 +78,7 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
     # all detections are collected into:
     #    all_boxes[cls][image] = N x 5 array of detections in
     #    (x1, y1, x2, y2, score)
-    all_boxes = [[[] for _ in xrange(num_images)]
-                 for _ in xrange(imdb.num_classes)]
+    all_boxes = [[[] for _ in xrange(num_images)] for _ in xrange(imdb.num_classes)]
 
     output_dir = get_output_dir(imdb, name)
 
@@ -109,8 +103,7 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
             inds = np.where(scores[:, j] > thresh)[0]
             cls_scores = scores[inds, j]
             cls_boxes = boxes[inds, j * 4:(j + 1) * 4]
-            cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
-                .astype(np.float32, copy=False)
+            cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])).astype(np.float32, copy=False)
             keep = nms(cls_dets, cfg.TEST.NMS)
             cls_dets = cls_dets[keep, :]
             if vis:
@@ -119,8 +112,7 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
 
         # Limit to max_per_image detections *over all classes*
         if max_per_image > 0:
-            image_scores = np.hstack([all_boxes[j][i][:, -1]
-                                      for j in xrange(1, imdb.num_classes)])
+            image_scores = np.hstack([all_boxes[j][i][:, -1] for j in xrange(1, imdb.num_classes)])
             if len(image_scores) > max_per_image:
                 image_thresh = np.sort(image_scores)[-max_per_image]
                 for j in xrange(1, imdb.num_classes):
@@ -128,8 +120,7 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
                     all_boxes[j][i] = all_boxes[j][i][keep, :]
         nms_time = _t['misc'].toc(average=False)
 
-        print 'im_detect: {:d}/{:d} {:.3f}s {:.3f}s' \
-            .format(i + 1, num_images, detect_time, nms_time)
+        print 'im_detect: {:d}/{:d} {:.3f}s {:.3f}s'.format(i + 1, num_images, detect_time, nms_time)
 
         if vis:
             cv2.imshow('test', im2show)
