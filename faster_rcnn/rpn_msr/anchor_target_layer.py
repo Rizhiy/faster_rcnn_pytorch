@@ -23,7 +23,8 @@ from ..fast_rcnn.bbox_transform import bbox_transform
 DEBUG = False
 
 
-def anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_info, _feat_stride=[16, ],
+def anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas,
+                        im_info, _feat_stride=[16, ],
                         anchor_scales=[4, 8, 16, 32]):
     """
     Assign anchors to ground-truth targets. Produces anchor classification
@@ -172,7 +173,8 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_i
         labels[intersecs_ > cfg.TRAIN.DONTCARE_AREA_INTERSECTION_HI] = -1
 
     # preclude hard samples that are highly occlusioned, truncated or difficult to see
-    if cfg.TRAIN.PRECLUDE_HARD_SAMPLES and gt_ishard is not None and gt_ishard.shape[0] > 0:
+    if cfg.TRAIN.PRECLUDE_HARD_SAMPLES and gt_ishard is not None and \
+                    gt_ishard.shape[0] > 0:
         assert gt_ishard.shape[0] == gt_boxes.shape[0]
         gt_ishard = gt_ishard.astype(int)
         gt_hardboxes = gt_boxes[gt_ishard == 1, :]
@@ -208,7 +210,8 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_i
     bbox_targets = _compute_targets(anchors, gt_boxes[argmax_overlaps, :])
 
     bbox_inside_weights = np.zeros((len(inds_inside), 4), dtype=np.float32)
-    bbox_inside_weights[labels == 1, :] = np.array(cfg.TRAIN.RPN_BBOX_INSIDE_WEIGHTS)
+    bbox_inside_weights[labels == 1, :] = np.array(
+        cfg.TRAIN.RPN_BBOX_INSIDE_WEIGHTS)
 
     bbox_outside_weights = np.zeros((len(inds_inside), 4), dtype=np.float32)
     if cfg.TRAIN.RPN_POSITIVE_WEIGHT < 0:
@@ -242,8 +245,10 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_i
     # map up to original set of anchors
     labels = _unmap(labels, total_anchors, inds_inside, fill=-1)
     bbox_targets = _unmap(bbox_targets, total_anchors, inds_inside, fill=0)
-    bbox_inside_weights = _unmap(bbox_inside_weights, total_anchors, inds_inside, fill=0)
-    bbox_outside_weights = _unmap(bbox_outside_weights, total_anchors, inds_inside, fill=0)
+    bbox_inside_weights = _unmap(bbox_inside_weights, total_anchors,
+                                 inds_inside, fill=0)
+    bbox_outside_weights = _unmap(bbox_outside_weights, total_anchors,
+                                  inds_inside, fill=0)
 
     if DEBUG:
         print 'rpn: max max_overlap', np.max(max_overlaps)
@@ -306,4 +311,5 @@ def _compute_targets(ex_rois, gt_rois):
     assert ex_rois.shape[1] == 4
     assert gt_rois.shape[1] == 5
 
-    return bbox_transform(ex_rois, gt_rois[:, :4]).astype(np.float32, copy=False)
+    return bbox_transform(ex_rois, gt_rois[:, :4]).astype(np.float32,
+                                                          copy=False)

@@ -16,12 +16,11 @@ from faster_rcnn.fast_rcnn.config import cfg, cfg_from_file, get_output_dir
 
 # hyper-parameters
 # ------------
-imdb_name = 'voc_2007_test'
+imdb_name = 'caltech_test_1x'
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
-# trained_model = '/media/longc/Data/models/VGGnet_fast_rcnn_iter_70000.h5'
-trained_model = 'models/saved_model3/faster_rcnn_90000.h5'
+trained_model = 'models/saved_models/faster_rcnn_100000.h5'
 
-rand_seed = 1024
+rand_seed = 42
 
 save_name = 'faster_rcnn_100000'
 max_per_image = 300
@@ -29,9 +28,6 @@ thresh = 0.05
 vis = False
 
 # ------------
-
-if rand_seed is not None:
-    np.random.seed(rand_seed)
 
 if rand_seed is not None:
     np.random.seed(rand_seed)

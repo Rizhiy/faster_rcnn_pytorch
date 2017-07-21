@@ -18,7 +18,7 @@ from .kitti_tracking import kitti_tracking
 from .nthu import nthu
 from .coco import coco
 from .kittivoc import kittivoc
-
+from .caltech import caltech
 
 def _selective_search_IJCV_top_k(split, year, top_k):
     """Return an imdb that uses the top k proposals from the selective search
@@ -37,12 +37,11 @@ for year in ['2007', '2012', '0712']:
         __sets[name] = (lambda split=split, year=year:
                         pascal_voc(split, year))
 
-
-    # Set up kittivoc
-    for split in ['train', 'val', 'trainval', 'test']:
-        name = 'kittivoc_{}'.format(split)
-        # print name
-        __sets[name] = (lambda split=split: kittivoc(split))
+# Set up kittivoc
+for split in ['train', 'val', 'trainval', 'test']:
+    name = 'kittivoc_{}'.format(split)
+    # print name
+    __sets[name] = (lambda split=split: kittivoc(split))
 
 # # KITTI dataset
 for split in ['train', 'val', 'trainval', 'test']:
@@ -67,6 +66,11 @@ for split in ['71', '370']:
     name = 'nthu_{}'.format(split)
     # print name
     __sets[name] = (lambda split=split: nthu(split))
+
+# Set up Caltech Pedestrian Dataset
+for split in ['train_1x', 'train_10x', 'train_30x', 'test_1x', 'test_30x', 'val', 'trainval', 'check']:
+    name = 'caltech_{}'.format(split)
+    __sets[name] = (lambda split=split: caltech(split))
 
 
 def get_imdb(name):
