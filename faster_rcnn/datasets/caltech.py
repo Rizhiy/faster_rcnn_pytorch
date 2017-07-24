@@ -104,7 +104,7 @@ class caltech(imdb):
         if 'train' in self._image_set:
             image_index = [x for x in self._image_index if self._person_present(x)]
         else:
-            # image_index = [x for idx, x in enumerate(self._image_index) if idx % 100 == 0]
+            # image_index = [x for idx, x in enumerate(self._image_index) if idx % 10 == 0]
             image_index = self._image_index
         return image_index
 
@@ -252,8 +252,8 @@ class caltech(imdb):
                     continue
                 for i in range(dets.shape[0]):
                     # Caltech expects data in form img,x,y,w,h,conf
-                    x = (dets[i, 0] + dets[i, 2]) / 2 + 1
-                    y = (dets[i, 1] + dets[i, 3]) / 2 + 1
+                    x = (dets[i, 0] + dets[i, 2]) / 2
+                    y = (dets[i, 1] + dets[i, 3]) / 2
                     w = dets[i, 2] - dets[i, 0]
                     h = dets[i, 3] - dets[i, 1]
                     f.write('{},{},{},{},{},{}\n'.format(idx_split[2], x, y, w, h, dets[i, -1]))
@@ -353,7 +353,7 @@ class caltech(imdb):
         'Computing results with the official MATLAB eval code.'
         print
         '-----------------------------------------------------'
-        path = os.path.join(cfg.ROOT_DIR, 'evaluation_code')
+        path = os.path.join(self._devkit_path, 'evaluation_code')
         cmd = 'cd {} && '.format(path)
         cmd += '{:s} -nodisplay -nodesktop '.format(cfg.MATLAB)
         cmd += '-r dbEval'

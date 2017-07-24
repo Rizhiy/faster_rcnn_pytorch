@@ -1,7 +1,10 @@
 import os
 import cv2
 import cPickle
+
+import datetime
 import numpy as np
+import sys
 
 from faster_rcnn import network
 from faster_rcnn.faster_rcnn import FasterRCNN
@@ -86,6 +89,7 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
     _t = {'im_detect': Timer(), 'misc': Timer()}
     det_file = os.path.join(output_dir, 'detections.pkl')
 
+    avg_fps = 0
     for i in range(num_images):
 
         im = cv2.imread(imdb.image_path_at(i))
@@ -120,7 +124,21 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
                     all_boxes[j][i] = all_boxes[j][i][keep, :]
         nms_time = _t['misc'].toc(average=False)
 
-        print 'im_detect: {:d}/{:d} {:.3f}s {:.3f}s'.format(i + 1, num_images, detect_time, nms_time)
+        rows, columns = os.popen('stty size', 'r').read().split()
+        bar_length = 50
+        percent = float(i + 1) / num_images
+        arrow = '-' * int(round(percent * bar_length) - 1) + '>'
+        spaces = ' ' * (bar_length - len(arrow))
+
+        fps = 1. / (detect_time + nms_time)
+        avg_fps = avg_fps * 0.99 + fps * 0.01
+        seconds_remaining = datetime.timedelta(seconds=int((num_images - i) / avg_fps))
+        sys.stdout.write("\r"+" "*150)
+        sys.stdout.flush()
+        sys.stdout.write("\rTesting: [{}] {}%; {:3.2f} FPS; Time remaining: {}".format(arrow + spaces,
+                                                                                       int(round(percent * 100)), fps,
+                                                                                       seconds_remaining))
+        sys.stdout.flush()
 
         if vis:
             cv2.imshow('test', im2show)
