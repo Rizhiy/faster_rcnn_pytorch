@@ -230,10 +230,8 @@ def caltech_eval(detpath,
     confidence = np.array([float(x[1]) for x in splitlines])
     BB = np.array([[float(z) for z in x[2:]] for x in splitlines])
 
-    # Remove low confidence
-    confidence = confidence[confidence > 0.1]
     # sort by confidence
-    sorted_ind = np.argsort(-confidence)
+    sorted_ind = np.argsort(confidence)
 
     if len(BB) != 0:  # check if array is empty
         BB = BB[sorted_ind, :]
@@ -244,7 +242,6 @@ def caltech_eval(detpath,
     tp = np.zeros(nd)
     fp = np.zeros(nd)
 
-    # TODO: add miss rate
     tot_tp = 0.
     tot_fp = 0.
     MR = np.ones(nd)

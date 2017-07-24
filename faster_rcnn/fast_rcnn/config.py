@@ -33,7 +33,7 @@ cfg = __C
 
 # region proposal network (RPN) or not
 __C.IS_RPN = True
-__C.ANCHOR_SCALES = [int(np.power(2, i)) for i in range(2, 7)]
+__C.ANCHOR_SCALES = [int(np.power(2, i)) for i in range(1, 5)]
 __C.NCLASSES = 2
 
 # multiscale training and testing

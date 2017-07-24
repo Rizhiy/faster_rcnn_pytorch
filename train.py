@@ -32,10 +32,11 @@ def log_print(text, color=None, on_color=None, attrs=None):
 
 # hyper-parameters
 # ------------
-imdb_name = 'caltech_train_1x'
+imdb_train_name = 'caltech_train_1x'
+imdb_val_name = 'caltech_test_1x'
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
 pretrained_model = 'data/pretrained_models/VGG_imagenet.npy'
-output_dir = 'models/adam'
+output_dir = 'models/saved_models'
 
 start_step = 0
 end_step = 600000
@@ -45,10 +46,10 @@ lr_decay = 1. / 10
 rand_seed = 42
 _DEBUG = True
 use_tensorboard = True
-remove_all_log = False  # remove all historical experiments in TensorBoard
+remove_all_log = True  # remove all historical experiments in TensorBoard
 exp_name = None  # the previous experiment name in TensorBoard
 
-ADAM = True
+ADAM = False
 
 # ------------
 
@@ -64,13 +65,17 @@ disp_interval = cfg.TRAIN.DISPLAY
 log_interval = cfg.TRAIN.LOG_IMAGE_ITERS
 
 # load data
-imdb = get_imdb(imdb_name)
-rdl_roidb.prepare_roidb(imdb)
-roidb = imdb.roidb
-data_layer = RoIDataLayer(roidb, imdb.num_classes)
+imdb_train = get_imdb(imdb_train_name)
+imdb_val = get_imdb(imdb_val_name)
+rdl_roidb.prepare_roidb(imdb_train)
+roidb_train = imdb_train.roidb
+rdl_roidb.prepare_roidb(imdb_val)
+roidb_val = imdb_val.roidb
+data_layer_train = RoIDataLayer(roidb_train, imdb_train.num_classes)
+data_layer_val = RoIDataLayer(roidb_val, imdb_val.num_classes)
 
 # load net
-net = FasterRCNN(classes=imdb.classes, debug=_DEBUG)
+net = FasterRCNN(classes=imdb_train.classes, debug=_DEBUG)
 network.weights_normal_init(net, dev=0.01)
 network.load_pretrained_npy(net, pretrained_model)
 
@@ -108,7 +113,7 @@ if use_tensorboard:
 
 # training
 train_loss = 0
-tp, tf, fg, bg = 0., 0., 0, 0
+tp, tn, fg, bg = 0., 0., 0, 0
 step_cnt = 0
 re_cnt = False
 t = Timer()
@@ -117,7 +122,7 @@ t.tic()
 for step in range(start_step, end_step + 1):
 
     # get one batch
-    blobs = data_layer.forward()
+    blobs = data_layer_train.forward()
     im_data = blobs['data']
     im_info = blobs['im_info']
     gt_boxes = blobs['gt_boxes']
@@ -130,7 +135,7 @@ for step in range(start_step, end_step + 1):
 
     if _DEBUG:
         tp += float(net.tp)
-        tf += float(net.tf)
+        tn += float(net.tf)
         fg += net.fg_cnt
         bg += net.bg_cnt
 
@@ -152,39 +157,55 @@ for step in range(start_step, end_step + 1):
         log_print(log_text, color='green', attrs=['bold'])
 
         if _DEBUG:
-            log_print('\tTP: %.2f%%, TF: %.2f%%, fg/bg=(%d/%d)' % (
-                tp / fg * 100., tf / bg * 100., fg / step_cnt, bg / step_cnt))
+            log_print('\tTP: %.2f%%, TN: %.2f%%, fg/bg=(%d/%d)' % (
+                tp / fg * 100., tn / bg * 100., fg / step_cnt, bg / step_cnt),
+                      color='cyan')
             log_print('\trpn_cls: %.4f, rpn_box: %.4f, rcnn_cls: %.4f, rcnn_box: %.4f' % (
                 net.rpn.cross_entropy.data.cpu().numpy()[0],
                 net.rpn.loss_box.data.cpu().numpy()[0],
                 net.cross_entropy.data.cpu().numpy()[0],
-                net.loss_box.data.cpu().numpy()[0])
-                      )
+                net.loss_box.data.cpu().numpy()[0]),
+                      color='white')
         re_cnt = True
 
     if use_tensorboard and step % log_interval == 0:
+        # get one batch
+        blobs = data_layer_val.forward()
+        im_data = blobs['data']
+        im_info = blobs['im_info']
+        gt_boxes = blobs['gt_boxes']
+        gt_ishard = blobs['gt_ishard']
+        dontcare_areas = blobs['dontcare_areas']
+
+        # forward
+        net(im_data, im_info, gt_boxes, gt_ishard, dontcare_areas)
+        loss = net.loss + net.rpn.loss
+        val_loss = loss.data[0]
+
         exp.add_scalar_value('train_loss', train_loss / step_cnt, step=step)
+        exp.add_scalar_value('val_loss', val_loss, step=step)
         exp.add_scalar_value('learning_rate', lr, step=step)
         if _DEBUG:
             exp.add_scalar_value('true_positive', tp / fg * 100., step=step)
-            exp.add_scalar_value('true_negative', tf / bg * 100., step=step)
+            exp.add_scalar_value('true_negative', tn / bg * 100., step=step)
             losses = {
-                'rpn_cls':  float(net.rpn.cross_entropy.data.cpu().numpy()[0]),
-                'rpn_box':  float(net.rpn.loss_box.data.cpu().numpy()[0]),
-                'rcnn_cls': float(net.cross_entropy.data.cpu().numpy()[0]),
-                'rcnn_box': float(net.loss_box.data.cpu().numpy()[0])}
+                'rpn_cls_cross_entropy':  float(net.rpn.cross_entropy.data.cpu().numpy()[0]),
+                'rpn_box_loss':           float(net.rpn.loss_box.data.cpu().numpy()[0]),
+                'rcnn_cls_cross_entropy': float(net.cross_entropy.data.cpu().numpy()[0]),
+                'rcnn_box_loss':          float(net.loss_box.data.cpu().numpy()[0])}
             exp.add_scalar_dict(losses, step=step)
 
     if (step % 10000 == 0) and step > 0:
         save_name = os.path.join(output_dir, 'faster_rcnn_{}.h5'.format(step))
         network.save_net(save_name, net)
         print('save model: {}'.format(save_name))
+
     if step in lr_decay_steps:
         lr *= lr_decay
         optimizer = _make_optimiser()
 
     if re_cnt:
-        tp, tf, fg, bg = 0., 0., 0, 0
+        tp, tn, fg, bg = 0., 0., 0, 0
         train_loss = 0
         step_cnt = 0
         t.tic()

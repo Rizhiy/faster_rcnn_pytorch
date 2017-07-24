@@ -36,7 +36,6 @@ class caltech(imdb):
         # govind: num_classes is set based on the number of classes in _classes tuple
         self._class_to_ind = dict(zip(self.classes, xrange(self.num_classes)))
         self._image_ext = '.jpg'
-        # govind: self._image_index is a list of all image names for current _image_set
         self._image_index = self._load_image_set_index()
         self._annotations = self._load_caltech_annotations()
         self._image_index = self._clean_image_index()
@@ -45,6 +44,7 @@ class caltech(imdb):
         self._roidb_handler = self.gt_roidb
         self._salt = str(uuid.uuid4())
         self._comp_id = 'comp4'
+        self.config['matlab_eval'] = True
 
         assert os.path.exists(self._devkit_path), \
             'Caltech devkit path does not exist: {}'.format(self._devkit_path)
@@ -99,12 +99,13 @@ class caltech(imdb):
 
     def _clean_image_index(self):
         # Remove images without persons during training
+        # image_index = [x for x in self._image_index if self._person_present(x)]
+        # TODO uncomment this later, this is a quick hack to get validation working
         if 'train' in self._image_set:
-            image_index = [x for x in self._image_index if
-                           self._person_present(x)]
+            image_index = [x for x in self._image_index if self._person_present(x)]
         else:
-            image_index = [x for i, x in enumerate(self._image_index) if i %
-                           10 == 0]
+            # image_index = [x for idx, x in enumerate(self._image_index) if idx % 100 == 0]
+            image_index = self._image_index
         return image_index
 
     def _get_default_path(self):
@@ -139,14 +140,11 @@ class caltech(imdb):
                 lines = f.readlines()
             imagenames = [x.strip() for x in lines]
 
-            caltech_parsed_data = parse_caltech_annotations(imagenames,
-                                                            os.path.join(
-                                                                self._data_path,
-                                                                'annotations'))
+            caltech_parsed_data = parse_caltech_annotations(imagenames, os.path.join(self._data_path, 'annotations'))
 
             # govind: this is reading the annotations from VOC/Annotations
             # directory and writing them in data/cache directory.
-            # gt_roidb is a list of dictionaries. Nth element of this list 
+            # gt_roidb is a list of dictionaries. Nth element of this list
             # is a corresponding dictionary for Nth image (which is usally
             # different from N.jpg)
             gt_roidb = [self._load_caltech_annotation(caltech_parsed_data, i)
@@ -173,7 +171,7 @@ class caltech(imdb):
 
         # Load object bounding boxes into a data frame.
         # govind: obj is a dictionary. Containing 'lbl' and 'pol'
-        # keys. 
+        # keys.
         for ix, obj in enumerate(objs):
             x1 = obj['bbox'][0]
             y1 = obj['bbox'][1]
@@ -192,7 +190,7 @@ class caltech(imdb):
         # I believe that we're not using the values seg_areas pesent in this dictionary
         # maybe legacy-code
         # gt_classes is an array of size <num_objs in the image>
-        # contains name of 
+        # contains name of
         return {'boxes':       boxes,
                 'gt_classes':  gt_classes,
                 # gt_classes is class index (integer). _background_ is 0
@@ -200,7 +198,6 @@ class caltech(imdb):
                 'flipped':     False,
                 'seg_areas':   seg_areas}
 
-    # govind: What is _comp_id
     def _get_comp_id(self):
         comp_id = (self._comp_id + '_' + self._salt if self.config['use_salt']
                    else self._comp_id)
@@ -228,9 +225,39 @@ class caltech(imdb):
         for cls_ind, cls in enumerate(self.classes):
             if cls == '__background__':
                 continue
-            print
-            'Writing {} caltech results file'.format(cls)
+            print 'Writing {} caltech results file'.format(cls)
             filename = self._get_caltech_results_file_template().format(cls)
+
+            lastset = None
+            lastseq = None
+            f = None
+            # Caltech expects results for every sequence in a separate file with each set represented by a folder
+            for im_ind, index in enumerate(self.image_index):
+                idx_split = index.split('/')
+                set = idx_split[0]
+                if set != lastset:
+                    dir = os.path.join(self._devkit_path, 'results', 'matlab_results', set)
+                    if not os.path.exists(dir):
+                        os.makedirs(dir)
+                    lastset = set
+                seq = idx_split[1]
+                if seq != lastseq:
+                    if f:
+                        f.close()
+                    f = open(os.path.join(self._devkit_path, 'results', 'matlab_results', set,
+                                          seq + '.txt'), 'w')
+                    lastseq = seq
+                dets = all_boxes[cls_ind][im_ind]
+                if dets == []:
+                    continue
+                for i in range(dets.shape[0]):
+                    # Caltech expects data in form img,x,y,w,h,conf
+                    x = (dets[i, 0] + dets[i, 2]) / 2 + 1
+                    y = (dets[i, 1] + dets[i, 3]) / 2 + 1
+                    w = dets[i, 2] - dets[i, 0]
+                    h = dets[i, 3] - dets[i, 1]
+                    f.write('{},{},{},{},{},{}\n'.format(idx_split[2], x, y, w, h, dets[i, -1]))
+
             with open(filename, 'wt') as f:
                 for im_ind, index in enumerate(self.image_index):
                     dets = all_boxes[cls_ind][im_ind]
@@ -244,13 +271,12 @@ class caltech(imdb):
                                        dets[k, 2] + 1, dets[k, 3] + 1))
 
     # govind: This function is responsible for evaluating the
-    # performance of network by comparing the 
-    # It is executed at the end of testing and is called by 
+    # performance of network by comparing the
+    # It is executed at the end of testing and is called by
     # lib/fast_rcnn/test_net()
     def _do_python_eval(self, output_dir='output'):
         annopath = os.path.join(self._data_path, 'annotations')
-        imagesetfile = os.path.join(self._data_path, 'ImageSets',
-                                    self._image_set + '.txt')
+        imagesetfile = os.path.join(self._data_path, 'ImageSets', self._image_set + '.txt')
 
         cachedir = os.path.join(self._devkit_path, 'annotations_cache')
         resultsdir = os.path.join(self._devkit_path, 'results')
@@ -280,14 +306,12 @@ class caltech(imdb):
             mr0i = next(idx for idx, element in enumerate(fppi) if element > 1.)
         except StopIteration:
             mr0i = -1
-        print(fppi)
-        print(mr4i, mr2i, mr0i)
         mr4 = mr[mr4i:mr0i]
         mr2 = mr[mr2i:mr0i]
-        # log_average_mr2 = np.exp(np.mean(np.log(mr2)))
-        # log_average_mr4 = np.exp(np.mean(np.log(mr4)))
-        log_average_mr2 = np.mean(mr2)
-        log_average_mr4 = np.mean(mr4)
+        log_average_mr2 = np.exp(np.mean(np.log(mr2)))
+        log_average_mr4 = np.exp(np.mean(np.log(mr4)))
+        # log_average_mr2 = np.mean(mr2)
+        # log_average_mr4 = np.mean(mr4)
         np.set_printoptions(precision=3)
         # govind: Computing Mean average precision
         print("Miss rate: {}".format(mr))
@@ -310,45 +334,38 @@ class caltech(imdb):
         print('--------------------------------------------------------------')
 
         now = str(datetime.datetime.now())
-        with open(os.path.join(resultsdir, now + "-results.txt"), "w") as file:
-            file.write("Miss rate: {}\n".format(mr))
-            file.write("FPPI:      {}\n".format(fppi))
-            file.write(
-                "LAMR: {} ({})\n".format(log_average_mr2, log_average_mr4))
-        plt.scatter(fppi, mr)
+        plt.scatter(fppi, mr, label='{:3.3f} ({:3.3f})'.format(log_average_mr2, log_average_mr4), s=2)
         plt.ylabel("Miss rate")
         plt.xlabel("FPPI")
         plt.yscale('log')
+        plt.xlim([1e-4, 1e1])
+        plt.ylim([0.04, 1.])
         plt.xscale('log')
         plt.title("Caltech results")
+        plt.legend()
         plt.savefig(os.path.join(resultsdir, now + "-graph.png"),
                     orientation="landscape", bbox_inches='tight')
 
-    def _do_matlab_eval(self, output_dir='output'):
-        assert False  # govind: This will not be called
+    def _do_matlab_eval(self):
         print
         '-----------------------------------------------------'
         print
         'Computing results with the official MATLAB eval code.'
         print
         '-----------------------------------------------------'
-        path = os.path.join(cfg.ROOT_DIR, 'lib', 'datasets',
-                            'VOCdevkit-matlab-wrapper')
+        path = os.path.join(cfg.ROOT_DIR, 'evaluation_code')
         cmd = 'cd {} && '.format(path)
         cmd += '{:s} -nodisplay -nodesktop '.format(cfg.MATLAB)
-        cmd += '-r "dbstop if error; '
-        cmd += 'voc_eval(\'{:s}\',\'{:s}\',\'{:s}\',\'{:s}\'); quit;"' \
-            .format(self._devkit_path, self._get_comp_id(),
-                    self._image_set, output_dir)
+        cmd += '-r dbEval'
         print('Running:\n{}'.format(cmd))
         status = subprocess.call(cmd, shell=True)
+        print(status)
 
     def evaluate_detections(self, all_boxes, output_dir):
         self._write_caltech_results_file(all_boxes)
         self._do_python_eval(output_dir)
         if self.config['matlab_eval']:
-            assert (0)  # govind: code not modified for caltech
-            self._do_matlab_eval(output_dir)
+            self._do_matlab_eval()
         if self.config['cleanup']:
             # govind: Remove the temp result files
             for cls in self._classes:

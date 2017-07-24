@@ -16,7 +16,7 @@ from faster_rcnn.fast_rcnn.config import cfg, cfg_from_file, get_output_dir
 # ------------
 imdb_name = 'caltech_test_1x'
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
-trained_model = 'models/saved_models/faster_rcnn_10000.h5'
+trained_model = 'models/saved_models/faster_rcnn_600000.h5'
 
 rand_seed = 42
 
@@ -140,6 +140,8 @@ if __name__ == '__main__':
 
     # load net
     net = FasterRCNN(classes=imdb.classes, debug=False)
+    # for i in range(1,11):
+    #     trained_model = 'models/21_rpn_classes/faster_rcnn_{}0000.h5'.format(str(i))
     network.load_net(trained_model, net)
     print('load model successfully!')
 
