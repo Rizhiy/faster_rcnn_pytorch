@@ -98,7 +98,7 @@ class caltech(imdb):
         return False
 
     def _clean_image_index(self):
-        if 'train' in self._image_set or 'val' in self._image_set:
+        if 'train' or 'val' in self._image_set:
             image_index = [x for x in self._image_index if self._person_present(x)]
         else:
             # image_index = [x for idx, x in enumerate(self._image_index) if idx % 10 == 0]
@@ -376,3 +376,16 @@ class caltech(imdb):
         else:
             self.config['use_salt'] = True
             self.config['cleanup'] = True
+
+
+if __name__ == '__main__':
+    # govind: know when this part is getting executed
+    assert 0
+
+    from faster_rcnn.datasets.pascal_voc import pascal_voc
+
+    d = pascal_voc('trainval', '2007')
+    res = d.roidb
+    from IPython import embed;
+
+    embed()

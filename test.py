@@ -19,7 +19,7 @@ from faster_rcnn.fast_rcnn.config import cfg, cfg_from_file, get_output_dir
 # ------------
 imdb_name = 'caltech_test_1x'
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
-trained_model = 'models/saved_models/faster_rcnn_20000.h5'
+trained_model = 'models/saved_models/faster_rcnn_600000.h5'
 
 rand_seed = 42
 
@@ -43,15 +43,7 @@ def vis_detections(im, class_name, dets, thresh=0.8):
         bbox = tuple(int(np.round(x)) for x in dets[i, :4])
         score = dets[i, -1]
         if score > thresh:
-            new_bb = np.zeros(4)
-            width = bbox[2]-bbox[0]
-            height = bbox[3]-bbox[1]
-            new_bb[0] = bbox[0] + width/2
-            new_bb[1] = bbox[1] + height/2
-            new_bb[2] = bbox[2] + width/2
-            new_bb[3] = bbox[3] + height/2
-            new_bb = tuple(int(np.round(x)) for x in new_bb)
-            cv2.rectangle(im, new_bb[0:2], new_bb[2:4], (0, 204, 0), 2)
+            cv2.rectangle(im, bbox[0:2], bbox[2:4], (0, 204, 0), 2)
             cv2.putText(im, '%s: %.3f' % (class_name, score), (bbox[0], bbox[1] + 15), cv2.FONT_HERSHEY_PLAIN, 1.0,
                         (0, 0, 255), thickness=1)
     return im
@@ -162,10 +154,12 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
 if __name__ == '__main__':
     # load data
     imdb = get_imdb(imdb_name)
-    imdb.competition_mode(on=False)
+    imdb.competition_mode(on=True)
 
     # load net
     net = FasterRCNN(classes=imdb.classes, debug=False)
+    # for i in range(1,11):
+    #     trained_model = 'models/21_rpn_classes/faster_rcnn_{}0000.h5'.format(str(i))
     network.load_net(trained_model, net)
     print('load model successfully!')
 
