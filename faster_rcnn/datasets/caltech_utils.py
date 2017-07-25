@@ -51,15 +51,19 @@ def parse_caltech_annotations(image_identifiers, ann_dir):
                         id = int(id[0][0]) - 1  # MATLAB is 1-origin
                         keys = obj.dtype.names
                         pos = pos[0].tolist()
-                        pos[0] = np.clip(pos[0] - pos[2] / 2, 0, image_wd)
-                        pos[1] = np.clip(pos[1] - pos[3] / 2, 0, image_ht)
+                        # Clip the incorrect? bounding boxes
+                        # [xmin, ymin xmax, ymax]
+                        pos[0] = np.clip(pos[0], 0, image_wd)
+                        pos[1] = np.clip(pos[1], 0, image_ht)
                         pos[2] = np.clip(pos[0] + pos[2], 0, image_wd)
                         pos[3] = np.clip(pos[1] + pos[3], 0, image_ht)
                         datum = dict(zip(keys, [id, pos]))
                         obj_datum = dict()
                         obj_datum['name'] = str(objLbl[datum['id']])
+                        # govind: Ignore 'people', 'person?' and 'person-fa' labels
                         if obj_datum['name'] != 'person':
                             continue
+                        obj_datum['pose'] = 'Unspecified'
                         obj_datum['truncated'] = 0
                         obj_datum['difficult'] = 0
                         obj_datum['bbox'] = pos
@@ -183,7 +187,7 @@ def caltech_eval(detpath,
         lines = f.readlines()
     image_identifiers = [x.strip() for x in lines]
 
-    if 1:  # load new anotations unconditionally in case test data have changed
+    if 1: # load new anotations unconditionally in case test data have changed
         # load annots
         # govind: recs is a dictionary with <image_identifier> as keys
         recs = parse_caltech_annotations(image_identifiers, annopath)
@@ -209,9 +213,9 @@ def caltech_eval(detpath,
         difficult = np.array([x['difficult'] for x in R]).astype(np.bool)
         det = [False] * len(R)
         npos = npos + sum(~difficult)
-        class_recs[image_identifier] = {'bbox':      bbox,
+        class_recs[image_identifier] = {'bbox': bbox,
                                         'difficult': difficult,
-                                        'det':       det}
+                                        'det': det}
         # There might not be any objects in the picture
         # if not recs[image_identifier]: #Check if list is empty
         #    print 'Warn: No labels present for: ', image_identifier
@@ -282,8 +286,8 @@ def caltech_eval(detpath,
             fp[d] = 1.
             tot_fp += 1.
 
-        MR[d] = 1. - tot_tp / npos
-        FPPI[d] = tot_fp / nimg
+        MR[d] = 1. - tot_tp/npos
+        FPPI[d] = tot_fp/nimg
 
     # compute precision recall
     fp = np.cumsum(fp)
