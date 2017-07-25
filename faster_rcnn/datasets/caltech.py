@@ -98,10 +98,7 @@ class caltech(imdb):
         return False
 
     def _clean_image_index(self):
-        # Remove images without persons during training
-        # image_index = [x for x in self._image_index if self._person_present(x)]
-        # TODO uncomment this later, this is a quick hack to get validation working
-        if 'train' in self._image_set:
+        if 'train' or 'val' in self._image_set:
             image_index = [x for x in self._image_index if self._person_present(x)]
         else:
             # image_index = [x for idx, x in enumerate(self._image_index) if idx % 10 == 0]
@@ -141,7 +138,6 @@ class caltech(imdb):
             imagenames = [x.strip() for x in lines]
 
             caltech_parsed_data = parse_caltech_annotations(imagenames, os.path.join(self._data_path, 'annotations'))
-
             # govind: this is reading the annotations from VOC/Annotations
             # directory and writing them in data/cache directory.
             # gt_roidb is a list of dictionaries. Nth element of this list
@@ -355,8 +351,7 @@ class caltech(imdb):
         '-----------------------------------------------------'
         path = os.path.join(self._devkit_path, 'evaluation_code')
         cmd = 'cd {} && '.format(path)
-        cmd += '{:s} -nodisplay -nodesktop '.format(cfg.MATLAB)
-        cmd += '-r dbEval'
+        cmd += '{:s} -nodisplay -nodesktop -r dbEval'.format(cfg.MATLAB)
         print('Running:\n{}'.format(cmd))
         status = subprocess.call(cmd, shell=True)
         print(status)
