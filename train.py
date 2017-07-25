@@ -43,7 +43,7 @@ lr_decay = 1. / 10
 rand_seed = 42
 _DEBUG = True
 use_tensorboard = True
-remove_all_log = False  # remove all historical experiments in TensorBoard
+remove_all_log = True  # remove all historical experiments in TensorBoard
 exp_name = None  # the previous experiment name in TensorBoard
 
 ADAM = False

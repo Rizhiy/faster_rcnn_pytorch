@@ -3,6 +3,7 @@ import cv2
 import cPickle
 
 import datetime
+import time
 import numpy as np
 import sys
 
@@ -19,7 +20,7 @@ from faster_rcnn.fast_rcnn.config import cfg, cfg_from_file, get_output_dir
 # ------------
 imdb_name = 'caltech_test_1x'
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
-trained_model = 'models/saved_models/faster_rcnn_600000.h5'
+trained_model = 'models/saved_models/faster_rcnn_40000.h5'
 
 rand_seed = 42
 
@@ -90,6 +91,7 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
     det_file = os.path.join(output_dir, 'detections.pkl')
 
     avg_fps = 5
+    last_time = time.time() - 1
     for i in range(num_images):
 
         im = cv2.imread(imdb.image_path_at(i))
@@ -130,7 +132,9 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
         arrow = '-' * int(round(percent * bar_length) - 1) + '>'
         spaces = ' ' * (bar_length - len(arrow))
 
-        fps = 1. / (detect_time + nms_time)
+        now = time.time()
+        fps = 1. / (now - last_time)
+        last_time = now
         avg_fps = avg_fps * 0.99 + fps * 0.01
         seconds_remaining = datetime.timedelta(seconds=int((num_images - i) / avg_fps))
         sys.stdout.write("\r" + " " * 150)
@@ -154,12 +158,10 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
 if __name__ == '__main__':
     # load data
     imdb = get_imdb(imdb_name)
-    imdb.competition_mode(on=True)
+    imdb.competition_mode(on=False)
 
     # load net
     net = FasterRCNN(classes=imdb.classes, debug=False)
-    # for i in range(1,11):
-    #     trained_model = 'models/21_rpn_classes/faster_rcnn_{}0000.h5'.format(str(i))
     network.load_net(trained_model, net)
     print('load model successfully!')
 

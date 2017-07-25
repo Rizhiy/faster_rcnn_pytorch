@@ -98,7 +98,7 @@ class caltech(imdb):
         return False
 
     def _clean_image_index(self):
-        if 'train' or 'val' in self._image_set:
+        if 'train' in self._image_set or 'val' in self._image_set:
             image_index = [x for x in self._image_index if self._person_present(x)]
         else:
             # image_index = [x for idx, x in enumerate(self._image_index) if idx % 10 == 0]
@@ -252,6 +252,8 @@ class caltech(imdb):
                     y = (dets[i, 1] + dets[i, 3]) / 2
                     w = dets[i, 2] - dets[i, 0]
                     h = dets[i, 3] - dets[i, 1]
+                    x -= w / 2
+                    y -= h / 2
                     f.write('{},{},{},{},{},{}\n'.format(idx_split[2], x, y, w, h, dets[i, -1]))
 
             with open(filename, 'wt') as f:
@@ -376,16 +378,3 @@ class caltech(imdb):
         else:
             self.config['use_salt'] = True
             self.config['cleanup'] = True
-
-
-if __name__ == '__main__':
-    # govind: know when this part is getting executed
-    assert 0
-
-    from faster_rcnn.datasets.pascal_voc import pascal_voc
-
-    d = pascal_voc('trainval', '2007')
-    res = d.roidb
-    from IPython import embed;
-
-    embed()

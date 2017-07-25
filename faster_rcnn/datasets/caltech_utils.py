@@ -187,7 +187,7 @@ def caltech_eval(detpath,
         lines = f.readlines()
     image_identifiers = [x.strip() for x in lines]
 
-    if 1: # load new anotations unconditionally in case test data have changed
+    if 1:  # load new anotations unconditionally in case test data have changed
         # load annots
         # govind: recs is a dictionary with <image_identifier> as keys
         recs = parse_caltech_annotations(image_identifiers, annopath)
@@ -213,9 +213,9 @@ def caltech_eval(detpath,
         difficult = np.array([x['difficult'] for x in R]).astype(np.bool)
         det = [False] * len(R)
         npos = npos + sum(~difficult)
-        class_recs[image_identifier] = {'bbox': bbox,
+        class_recs[image_identifier] = {'bbox':      bbox,
                                         'difficult': difficult,
-                                        'det': det}
+                                        'det':       det}
         # There might not be any objects in the picture
         # if not recs[image_identifier]: #Check if list is empty
         #    print 'Warn: No labels present for: ', image_identifier
@@ -286,8 +286,8 @@ def caltech_eval(detpath,
             fp[d] = 1.
             tot_fp += 1.
 
-        MR[d] = 1. - tot_tp/npos
-        FPPI[d] = tot_fp/nimg
+        MR[d] = 1. - tot_tp / npos
+        FPPI[d] = tot_fp / nimg
 
     # compute precision recall
     fp = np.cumsum(fp)
