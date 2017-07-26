@@ -34,7 +34,7 @@ def log_print(text, color=None, on_color=None, attrs=None):
 # ------------
 imdb_train_name = 'caltech_train_1x'
 imdb_val_name = 'caltech_val_1x'
-cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
+cfg_file = 'experiments/cfgs/caltech.yml'
 pretrained_model = 'data/pretrained_models/VGG_imagenet.npy'
 output_dir = 'models/saved_models'
 
@@ -42,8 +42,8 @@ lr_decay = 1. / 10
 
 rand_seed = 42
 _DEBUG = True
-use_tensorboard = True
-remove_all_log = True  # remove all historical experiments in TensorBoard
+use_tensorboard = False
+remove_all_log = False  # remove all historical experiments in TensorBoard
 exp_name = None  # the previous experiment name in TensorBoard
 
 ADAM = False
@@ -51,8 +51,8 @@ QUICK = True
 
 start_step = 0
 if QUICK:
-    end_step = 160000
-    lr_decay_steps = {80000, 120000, 140000}
+    end_step = 140000
+    lr_decay_steps = {80000, 100000, 120000}
 else:
     end_step = 600000
     lr_decay_steps = {100000, 200000, 400000}
@@ -81,7 +81,7 @@ data_layer_train = RoIDataLayer(roidb_train, imdb_train.num_classes)
 data_layer_val = RoIDataLayer(roidb_val, imdb_val.num_classes)
 
 # load net
-net = FasterRCNN(classes=imdb_train.classes, debug=_DEBUG)
+net = FasterRCNN(classes=imdb_train.classes, debug=_DEBUG, cfg=cfg)
 network.weights_normal_init(net, dev=0.01)
 network.load_pretrained_npy(net, pretrained_model)
 

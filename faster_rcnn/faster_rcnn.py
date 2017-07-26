@@ -33,9 +33,10 @@ class RPN(nn.Module):
     _feat_stride = [16, ]
     anchor_scales = [8, 16, 32]
 
-    def __init__(self):
+    def __init__(self, cfg=None):
         super(RPN, self).__init__()
-
+        if cfg:
+            self.anchor_scales = cfg.ANCHOR_SCALES
         self.features = VGG16(bn=False)
         self.conv1 = Conv2d(512, 512, 3, same_padding=True)
         self.score_conv = Conv2d(512, len(self.anchor_scales) * 3 * 2, 1, relu=False, same_padding=False)
@@ -60,7 +61,7 @@ class RPN(nn.Module):
         rpn_cls_score = self.score_conv(rpn_conv1)
         rpn_cls_score_reshape = self.reshape_layer(rpn_cls_score, 2)
         rpn_cls_prob = F.softmax(rpn_cls_score_reshape)
-        rpn_cls_prob_reshape = self.reshape_layer(rpn_cls_prob, len(self.anchor_scales)*3*2)
+        rpn_cls_prob_reshape = self.reshape_layer(rpn_cls_prob, len(self.anchor_scales) * 3 * 2)
 
         # rpn boxes
         rpn_bbox_pred = self.bbox_conv(rpn_conv1)
@@ -72,6 +73,7 @@ class RPN(nn.Module):
 
         # generating training labels and build the rpn loss
         if self.training:
+            assert gt_boxes.shape[0] != 0
             assert gt_boxes is not None
             rpn_data = self.anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas,
                                                 im_info, self._feat_stride, self.anchor_scales)
@@ -145,7 +147,8 @@ class RPN(nn.Module):
         """
         rpn_cls_score = rpn_cls_score.data.cpu().numpy()
         rpn_labels, rpn_bbox_targets, rpn_bbox_inside_weights, rpn_bbox_outside_weights = \
-            anchor_target_layer_py(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_info, _feat_stride, anchor_scales)
+            anchor_target_layer_py(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_info, _feat_stride,
+                                   anchor_scales)
 
         rpn_labels = network.np_to_variable(rpn_labels, is_cuda=True, dtype=torch.LongTensor)
         rpn_bbox_targets = network.np_to_variable(rpn_bbox_targets, is_cuda=True)
@@ -173,24 +176,24 @@ class RPN(nn.Module):
 class FasterRCNN(nn.Module):
     n_classes = 21
     classes = np.asarray(['__background__',
-                       'aeroplane', 'bicycle', 'bird', 'boat',
-                       'bottle', 'bus', 'car', 'cat', 'chair',
-                       'cow', 'diningtable', 'dog', 'horse',
-                       'motorbike', 'person', 'pottedplant',
-                       'sheep', 'sofa', 'train', 'tvmonitor'])
+                          'aeroplane', 'bicycle', 'bird', 'boat',
+                          'bottle', 'bus', 'car', 'cat', 'chair',
+                          'cow', 'diningtable', 'dog', 'horse',
+                          'motorbike', 'person', 'pottedplant',
+                          'sheep', 'sofa', 'train', 'tvmonitor'])
     PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
     SCALES = (600,)
     MAX_SIZE = 1000
 
-    def __init__(self, classes=None, debug=False):
+    def __init__(self, classes=None, debug=False, cfg=None):
         super(FasterRCNN, self).__init__()
 
         if classes is not None:
             self.classes = classes
             self.n_classes = len(classes)
 
-        self.rpn = RPN()
-        self.roi_pool = RoIPool(7, 7, 1.0/16)
+        self.rpn = RPN(cfg)
+        self.roi_pool = RoIPool(7, 7, 1.0 / 16)
         self.fc6 = FC(512 * 7 * 7, 4096)
         self.fc7 = FC(4096, 4096)
         self.score_fc = FC(4096, self.n_classes, relu=False)
@@ -387,4 +390,3 @@ class FasterRCNN(nn.Module):
             key = '{}.bias'.format(k)
             param = torch.from_numpy(params['{}/biases:0'.format(v)])
             own_dict[key].copy_(param)
-

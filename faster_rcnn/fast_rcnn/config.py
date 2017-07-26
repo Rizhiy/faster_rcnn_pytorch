@@ -33,8 +33,8 @@ cfg = __C
 
 # region proposal network (RPN) or not
 __C.IS_RPN = True
-__C.ANCHOR_SCALES = [int(np.power(2, i)) for i in range(1, 5)]
-__C.NCLASSES = 2
+__C.ANCHOR_SCALES = [8, 16, 32]
+__C.NCLASSES = 21
 
 # multiscale training and testing
 __C.IS_MULTISCALE = False
@@ -54,7 +54,7 @@ __C.TRAIN.LEARNING_RATE = 0.001
 __C.TRAIN.MOMENTUM = 0.9
 __C.TRAIN.GAMMA = 0.1
 __C.TRAIN.STEPSIZE = 50000
-__C.TRAIN.DISPLAY = 100
+__C.TRAIN.DISPLAY = 10
 __C.TRAIN.LOG_IMAGE_ITERS = 100
 __C.TRAIN.OHEM = False
 
@@ -67,6 +67,7 @@ __C.TRAIN.SCALES_BASE = (0.25, 0.5, 1.0, 2.0, 3.0)
 __C.TRAIN.KERNEL_SIZE = 5
 
 # Aspect ratio to use during training
+# __C.TRAIN.ASPECTS = (1, 0.75, 0.5, 0.25)
 __C.TRAIN.ASPECTS = (1,)
 
 # Scales to use during training (can list multiple scales)
@@ -260,8 +261,7 @@ def get_output_dir(imdb, weights_filename):
     A canonical path is built using the name from an imdb and a network
     (if not None).
     """
-    outdir = osp.abspath(
-        osp.join(__C.ROOT_DIR, 'output', __C.EXP_DIR, imdb.name))
+    outdir = osp.abspath(osp.join(__C.ROOT_DIR, 'output', __C.EXP_DIR, imdb.name))
     if weights_filename is not None:
         outdir = osp.join(outdir, weights_filename)
     if not os.path.exists(outdir):
@@ -276,8 +276,7 @@ def get_log_dir(imdb):
     (if not None).
     """
     log_dir = osp.abspath( \
-        osp.join(__C.ROOT_DIR, 'logs', __C.LOG_DIR, imdb.name,
-                 strftime("%Y-%m-%d-%H-%M-%S", localtime())))
+        osp.join(__C.ROOT_DIR, 'logs', __C.LOG_DIR, imdb.name, strftime("%Y-%m-%d-%H-%M-%S", localtime())))
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     return log_dir
