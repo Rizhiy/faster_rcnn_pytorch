@@ -20,13 +20,13 @@ from faster_rcnn.fast_rcnn.config import cfg, cfg_from_file, get_output_dir
 # ------------
 imdb_name = 'caltech_test_1x'
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
-trained_model = 'models/saved_models/faster_rcnn_40000.h5'
+trained_model = 'models/saved_models/faster_rcnn_10000.h5'
 
 rand_seed = 42
 
 save_name = 'faster_rcnn_100000'
 max_per_image = 300
-thresh = 0.05
+thresh = 1e-5
 vis = False
 
 # ------------
@@ -139,8 +139,8 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
         seconds_remaining = datetime.timedelta(seconds=int((num_images - i) / avg_fps))
         sys.stdout.write("\r" + " " * 150)
         sys.stdout.flush()
-        sys.stdout.write("\rTesting: [{}] {}%; {:3.2f} FPS; Time remaining: {}".
-                         format(arrow + spaces, int(round(percent * 100)), fps, seconds_remaining))
+        sys.stdout.write("\rTesting: [{}] {:3d}%; {:3.2f} FPS; Time remaining: {}".
+                         format(arrow + spaces, int(percent * 100), fps, seconds_remaining))
         sys.stdout.flush()
 
         if vis:
