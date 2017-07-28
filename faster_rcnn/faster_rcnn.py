@@ -32,15 +32,19 @@ def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
 class RPN(nn.Module):
     _feat_stride = [16, ]
     anchor_scales = [8, 16, 32]
+    anchor_ratios = [0.5, 1, 2]
 
     def __init__(self, cfg=None):
         super(RPN, self).__init__()
         if cfg:
             self.anchor_scales = cfg.ANCHOR_SCALES
+            self.anchor_ratios = cfg.ANCHOR_RATIOS
         self.features = VGG16(bn=False)
         self.conv1 = Conv2d(512, 512, 3, same_padding=True)
-        self.score_conv = Conv2d(512, len(self.anchor_scales) * 3 * 2, 1, relu=False, same_padding=False)
-        self.bbox_conv = Conv2d(512, len(self.anchor_scales) * 3 * 4, 1, relu=False, same_padding=False)
+        self.score_conv = Conv2d(512, len(self.anchor_scales) * 3 * 2, 1, relu=False,
+                                 same_padding=False)
+        self.bbox_conv = Conv2d(512, len(self.anchor_scales) * 3 * 4, 1, relu=False,
+                                same_padding=False)
 
         # loss
         self.cross_entropy = None
@@ -76,8 +80,10 @@ class RPN(nn.Module):
             assert gt_boxes.shape[0] != 0
             assert gt_boxes is not None
             rpn_data = self.anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas,
-                                                im_info, self._feat_stride, self.anchor_scales)
-            self.cross_entropy, self.loss_box = self.build_loss(rpn_cls_score_reshape, rpn_bbox_pred, rpn_data)
+                                                im_info, self._feat_stride, self.anchor_scales,
+                                                self.anchor_ratios)
+            self.cross_entropy, self.loss_box = self.build_loss(rpn_cls_score_reshape,
+                                                                rpn_bbox_pred, rpn_data)
 
         return features, rois
 
@@ -99,7 +105,8 @@ class RPN(nn.Module):
         rpn_bbox_targets = torch.mul(rpn_bbox_targets, rpn_bbox_inside_weights)
         rpn_bbox_pred = torch.mul(rpn_bbox_pred, rpn_bbox_inside_weights)
 
-        rpn_loss_box = F.smooth_l1_loss(rpn_bbox_pred, rpn_bbox_targets, size_average=False) / (fg_cnt + 1e-4)
+        rpn_loss_box = F.smooth_l1_loss(rpn_bbox_pred, rpn_bbox_targets, size_average=False) / (
+            fg_cnt + 1e-4)
 
         return rpn_cross_entropy, rpn_loss_box
 
@@ -118,15 +125,18 @@ class RPN(nn.Module):
         return x
 
     @staticmethod
-    def proposal_layer(rpn_cls_prob_reshape, rpn_bbox_pred, im_info, cfg_key, _feat_stride, anchor_scales):
+    def proposal_layer(rpn_cls_prob_reshape, rpn_bbox_pred, im_info, cfg_key, _feat_stride,
+                       anchor_scales):
         rpn_cls_prob_reshape = rpn_cls_prob_reshape.data.cpu().numpy()
         rpn_bbox_pred = rpn_bbox_pred.data.cpu().numpy()
-        x = proposal_layer_py(rpn_cls_prob_reshape, rpn_bbox_pred, im_info, cfg_key, _feat_stride, anchor_scales)
+        x = proposal_layer_py(rpn_cls_prob_reshape, rpn_bbox_pred, im_info, cfg_key, _feat_stride,
+                              anchor_scales)
         x = network.np_to_variable(x, is_cuda=True)
         return x.view(-1, 5)
 
     @staticmethod
-    def anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_info, _feat_stride, anchor_scales):
+    def anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_info,
+                            _feat_stride, anchor_scales, anchor_ratios):
         """
         rpn_cls_score: for pytorch (1, Ax2, H, W) bg/fg scores of previous conv layer
         gt_boxes: (G, 5) vstack of [x1, y1, x2, y2, class]
@@ -147,8 +157,8 @@ class RPN(nn.Module):
         """
         rpn_cls_score = rpn_cls_score.data.cpu().numpy()
         rpn_labels, rpn_bbox_targets, rpn_bbox_inside_weights, rpn_bbox_outside_weights = \
-            anchor_target_layer_py(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_info, _feat_stride,
-                                   anchor_scales)
+            anchor_target_layer_py(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_info,
+                                   _feat_stride, anchor_scales, anchor_ratios)
 
         rpn_labels = network.np_to_variable(rpn_labels, is_cuda=True, dtype=torch.LongTensor)
         rpn_bbox_targets = network.np_to_variable(rpn_bbox_targets, is_cuda=True)
@@ -161,7 +171,8 @@ class RPN(nn.Module):
         # params = np.load(npz_file)
         self.features.load_from_npz(params)
 
-        pairs = {'conv1.conv': 'rpn_conv/3x3', 'score_conv.conv': 'rpn_cls_score', 'bbox_conv.conv': 'rpn_bbox_pred'}
+        pairs = {'conv1.conv':     'rpn_conv/3x3', 'score_conv.conv': 'rpn_cls_score',
+                 'bbox_conv.conv': 'rpn_bbox_pred'}
         own_dict = self.state_dict()
         for k, v in pairs.items():
             key = '{}.weight'.format(k)
@@ -218,7 +229,8 @@ class FasterRCNN(nn.Module):
         features, rois = self.rpn(im_data, im_info, gt_boxes, gt_ishard, dontcare_areas)
 
         if self.training:
-            roi_data = self.proposal_target_layer(rois, gt_boxes, gt_ishard, dontcare_areas, self.n_classes)
+            roi_data = self.proposal_target_layer(rois, gt_boxes, gt_ishard, dontcare_areas,
+                                                  self.n_classes)
             rois = roi_data[0]
 
         # roi pool
@@ -296,7 +308,8 @@ class FasterRCNN(nn.Module):
 
         return rois, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
 
-    def interpret_faster_rcnn(self, cls_prob, bbox_pred, rois, im_info, im_shape, nms=True, clip=True, min_score=0.0):
+    def interpret_faster_rcnn(self, cls_prob, bbox_pred, rois, im_info, im_shape, nms=True,
+                              clip=True, min_score=0.0):
         # find class
         scores, inds = cls_prob.data.max(1)
         scores, inds = scores.cpu().numpy(), inds.cpu().numpy()
@@ -329,7 +342,8 @@ class FasterRCNN(nn.Module):
 
         cls_prob, bbox_pred, rois = self(im_data, im_info)
         pred_boxes, scores, classes = \
-            self.interpret_faster_rcnn(cls_prob, bbox_pred, rois, im_info, image.shape, min_score=thr)
+            self.interpret_faster_rcnn(cls_prob, bbox_pred, rois, im_info, image.shape,
+                                       min_score=thr)
         return pred_boxes, scores, classes
 
     def get_image_blob_noscale(self, im):
@@ -380,7 +394,10 @@ class FasterRCNN(nn.Module):
     def load_from_npz(self, params):
         self.rpn.load_from_npz(params)
 
-        pairs = {'fc6.fc': 'fc6', 'fc7.fc': 'fc7', 'score_fc.fc': 'cls_score', 'bbox_fc.fc': 'bbox_pred'}
+        pairs = {'fc6.fc':      'fc6',
+                 'fc7.fc':      'fc7',
+                 'score_fc.fc': 'cls_score',
+                 'bbox_fc.fc':  'bbox_pred'}
         own_dict = self.state_dict()
         for k, v in pairs.items():
             key = '{}.weight'.format(k)

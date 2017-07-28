@@ -34,6 +34,7 @@ cfg = __C
 # region proposal network (RPN) or not
 __C.IS_RPN = True
 __C.ANCHOR_SCALES = [8, 16, 32]
+__C.ANCHOR_RATIOS = [0.5, 1, 2]
 __C.NCLASSES = 21
 
 # multiscale training and testing
@@ -276,7 +277,8 @@ def get_log_dir(imdb):
     (if not None).
     """
     log_dir = osp.abspath( \
-        osp.join(__C.ROOT_DIR, 'logs', __C.LOG_DIR, imdb.name, strftime("%Y-%m-%d-%H-%M-%S", localtime())))
+        osp.join(__C.ROOT_DIR, 'logs', __C.LOG_DIR, imdb.name,
+                 strftime("%Y-%m-%d-%H-%M-%S", localtime())))
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     return log_dir
