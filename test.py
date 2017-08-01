@@ -18,15 +18,16 @@ from faster_rcnn.fast_rcnn.config import cfg, cfg_from_file, get_output_dir
 
 # hyper-parameters
 # ------------
+model_dir = 'models/saved_models1/'
 imdb_name = 'caltech_test_1x'
-cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
-trained_model = 'models/saved_models/faster_rcnn_10000.h5'
+cfg_file = os.path.join(model_dir, 'caltech.yml')
+trained_model = os.path.join(model_dir, 'faster_rcnn_140000.h5')
 
 rand_seed = 42
 
 save_name = 'faster_rcnn_100000'
 max_per_image = 300
-thresh = 1e-5
+thresh = 5e-5
 vis = False
 
 # ------------
@@ -45,8 +46,8 @@ def vis_detections(im, class_name, dets, thresh=0.8):
         score = dets[i, -1]
         if score > thresh:
             cv2.rectangle(im, bbox[0:2], bbox[2:4], (0, 204, 0), 2)
-            cv2.putText(im, '%s: %.3f' % (class_name, score), (bbox[0], bbox[1] + 15), cv2.FONT_HERSHEY_PLAIN, 1.0,
-                        (0, 0, 255), thickness=1)
+            cv2.putText(im, '%s: %.3f' % (class_name, score), (bbox[0], bbox[1] + 15),
+                        cv2.FONT_HERSHEY_PLAIN, 1.0, (0, 0, 255), thickness=1)
     return im
 
 
@@ -92,14 +93,13 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
 
     avg_fps = 5
     last_time = time.time() - 1
+    display_freq = 10
+    bar_length = 50
     for i in range(num_images):
 
         im = cv2.imread(imdb.image_path_at(i))
-        _t['im_detect'].tic()
         scores, boxes = im_detect(net, im)
-        detect_time = _t['im_detect'].toc(average=False)
 
-        _t['misc'].tic()
         if vis:
             # im2show = np.copy(im[:, :, (2, 1, 0)])
             im2show = np.copy(im)
@@ -109,7 +109,8 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
             inds = np.where(scores[:, j] > thresh)[0]
             cls_scores = scores[inds, j]
             cls_boxes = boxes[inds, j * 4:(j + 1) * 4]
-            cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])).astype(np.float32, copy=False)
+            cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])).astype(np.float32,
+                                                                                copy=False)
             keep = nms(cls_dets, cfg.TEST.NMS)
             cls_dets = cls_dets[keep, :]
             if vis:
@@ -124,28 +125,26 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
                 for j in xrange(1, imdb.num_classes):
                     keep = np.where(all_boxes[j][i][:, -1] >= image_thresh)[0]
                     all_boxes[j][i] = all_boxes[j][i][keep, :]
-        nms_time = _t['misc'].toc(average=False)
 
-        rows, columns = os.popen('stty size', 'r').read().split()
-        bar_length = 50
-        percent = float(i + 1) / num_images
-        arrow = '-' * int(round(percent * bar_length) - 1) + '>'
-        spaces = ' ' * (bar_length - len(arrow))
+        if i % display_freq == 0:
+            percent = float(i + 1) / num_images
+            arrow = '-' * int(round(percent * bar_length) - 1) + '>'
+            spaces = ' ' * (bar_length - len(arrow))
 
-        now = time.time()
-        fps = 1. / (now - last_time)
-        last_time = now
-        avg_fps = avg_fps * 0.99 + fps * 0.01
-        seconds_remaining = datetime.timedelta(seconds=int((num_images - i) / avg_fps))
-        sys.stdout.write("\r" + " " * 150)
-        sys.stdout.flush()
-        sys.stdout.write("\rTesting: [{}] {:3d}%; {:3.2f} FPS; Time remaining: {}".
-                         format(arrow + spaces, int(percent * 100), fps, seconds_remaining))
-        sys.stdout.flush()
+            now = time.time()
+            fps = float(display_freq) / (now - last_time)
+            last_time = now
+            avg_fps = avg_fps * 0.9 + fps * 0.1
+            seconds_remaining = datetime.timedelta(seconds=int((num_images - i) / avg_fps))
+            sys.stdout.write("\r" + " " * (bar_length + 100))
+            sys.stdout.flush()
+            sys.stdout.write("\rTesting: [{}] {:3d}%; {:3.2f} FPS; Time remaining: {}".
+                             format(arrow + spaces, int(percent * 100), fps, seconds_remaining))
+            sys.stdout.flush()
 
-        if vis:
-            cv2.imshow('test', im2show)
-            cv2.waitKey(1)
+            if vis:
+                cv2.imshow('test', im2show)
+                cv2.waitKey(1)
     print '\n'
 
     with open(det_file, 'wb') as f:
@@ -161,7 +160,7 @@ if __name__ == '__main__':
     imdb.competition_mode(on=False)
 
     # load net
-    net = FasterRCNN(classes=imdb.classes, debug=False)
+    net = FasterRCNN(classes=imdb.classes, debug=False, cfg=cfg)
     network.load_net(trained_model, net)
     print('load model successfully!')
 

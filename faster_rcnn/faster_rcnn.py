@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from utils.timer import Timer
 from utils.blob import im_list_to_blob
 from fast_rcnn.nms_wrapper import nms
 from rpn_msr.proposal_layer import proposal_layer as proposal_layer_py
@@ -15,7 +14,6 @@ from fast_rcnn.bbox_transform import bbox_transform_inv, clip_boxes
 
 import network
 from network import Conv2d, FC
-# from roi_pooling.modules.roi_pool_py import RoIPool
 from roi_pooling.modules.roi_pool import RoIPool
 from vgg16 import VGG16
 
@@ -219,10 +217,6 @@ class FasterRCNN(nn.Module):
 
     @property
     def loss(self):
-        # print self.cross_entropy
-        # print self.loss_box
-        # print self.rpn.cross_entropy
-        # print self.rpn.loss_box
         return self.cross_entropy + self.loss_box * 10
 
     def forward(self, im_data, im_info, gt_boxes=None, gt_ishard=None, dontcare_areas=None):
@@ -240,7 +234,6 @@ class FasterRCNN(nn.Module):
         x = F.dropout(x, training=self.training)
         x = self.fc7(x)
         x = F.dropout(x, training=self.training)
-
         cls_score = self.score_fc(x)
         cls_prob = F.softmax(cls_score)
         bbox_pred = self.bbox_fc(x)
@@ -299,7 +292,6 @@ class FasterRCNN(nn.Module):
         rpn_rois = rpn_rois.data.cpu().numpy()
         rois, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights = \
             proposal_target_layer_py(rpn_rois, gt_boxes, gt_ishard, dontcare_areas, num_classes)
-        # print labels.shape, bbox_targets.shape, bbox_inside_weights.shape
         rois = network.np_to_variable(rois, is_cuda=True)
         labels = network.np_to_variable(labels, is_cuda=True, dtype=torch.LongTensor)
         bbox_targets = network.np_to_variable(bbox_targets, is_cuda=True)

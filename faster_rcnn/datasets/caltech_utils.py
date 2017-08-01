@@ -29,21 +29,10 @@ def parse_caltech_annotations(image_identifiers, ann_dir):
         data[set_name] = defaultdict(dict)
         for anno_fn in sorted(glob.glob('{}/*.vbb'.format(dname))):
             vbb = loadmat(anno_fn)
-            nFrame = int(vbb['A'][0][0][0][0][0])
             objLists = vbb['A'][0][0][1][0]
-            # govind: Is it maximum number of objects in that vbb file?
-            maxObj = int(vbb['A'][0][0][2][0][0])
-            objInit = vbb['A'][0][0][3][0]
             objLbl = [str(v[0]) for v in vbb['A'][0][0][4][0]]
-            objStr = vbb['A'][0][0][5][0]
-            objEnd = vbb['A'][0][0][6][0]
-            objHide = vbb['A'][0][0][7][0]
-            altered = int(vbb['A'][0][0][8][0][0])
-            log = vbb['A'][0][0][9][0]
-            logLen = int(vbb['A'][0][0][10][0][0])
 
             video_name = os.path.splitext(os.path.basename(anno_fn))[0]
-            # govind: One iteration of this loop processes one frame
             for frame_id, obj in enumerate(objLists):
                 objs = []
                 if len(obj) > 0:
@@ -51,8 +40,7 @@ def parse_caltech_annotations(image_identifiers, ann_dir):
                         id = int(id[0][0]) - 1  # MATLAB is 1-origin
                         keys = obj.dtype.names
                         pos = pos[0].tolist()
-                        # Clip the incorrect? bounding boxes
-                        # [xmin, ymin xmax, ymax]
+                        # convert x,y,w,h to xmin,ymin,xmax,ymax and clip to image frame
                         pos[0] = np.clip(pos[0], 0, image_wd)
                         pos[1] = np.clip(pos[1], 0, image_ht)
                         pos[2] = np.clip(pos[0] + pos[2], 0, image_wd)
@@ -60,7 +48,6 @@ def parse_caltech_annotations(image_identifiers, ann_dir):
                         datum = dict(zip(keys, [id, pos]))
                         obj_datum = dict()
                         obj_datum['name'] = str(objLbl[datum['id']])
-                        # govind: Ignore 'people', 'person?' and 'person-fa' labels
                         if obj_datum['name'] != 'person':
                             continue
                         obj_datum['pose'] = 'Unspecified'
@@ -86,6 +73,38 @@ def parse_caltech_annotations(image_identifiers, ann_dir):
     return recs
 
 
+def parse_new_annotations(image_identifiers, ann_dir):
+    recs = {}
+    image_wd = 640
+    image_ht = 480
+
+    ann_dir = os.path.join(ann_dir, 'new_train_10x')
+
+    for img in image_identifiers:
+        path_split = img.split('/')
+        name = path_split[0] + '_' + path_split[1] + '_' + 'I' + path_split[2].zfill(5) + '.txt'
+        with open(os.path.join(ann_dir, name), 'r') as file:
+            detections = file.readlines()[1:]
+            objs = []
+            for detection in detections:
+                det = detection.split(' ')
+                type = det[0]
+                pos = np.array(det[1:5]).astype(np.float)
+                bbox = np.zeros(4)
+                # convert x,y,w,h to xmin,ymin,xmax,ymax
+                bbox[0] = np.clip(pos[0], 0, image_wd)
+                bbox[1] = np.clip(pos[1], 0, image_ht)
+                bbox[2] = np.clip(pos[0] + pos[2], 0, image_wd)
+                bbox[3] = np.clip(pos[1] + pos[3], 0, image_ht)
+                obj_datum = dict()
+                obj_datum['name'] = type
+                obj_datum['bbox'] = bbox
+                obj_datum['difficult'] = 0
+                objs.append(obj_datum)
+            recs[img] = objs
+    return recs
+
+
 def vis_annotations(image_identifier, dets):
     """Draw detected bounding boxes."""
     import cv2
@@ -104,10 +123,9 @@ def vis_annotations(image_identifier, dets):
         # print bbox
         class_name = obj['name']
         ax.add_patch(
-            plt.Rectangle((bbox[0], bbox[1]),
-                          bbox[2] - bbox[0],
-                          bbox[3] - bbox[1], fill=False,
-                          edgecolor='red', linewidth=3.5)
+            plt.Rectangle(((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2),
+                          bbox[2] - bbox[0], bbox[3] - bbox[1],
+                          fill=False, edgecolor='red', linewidth=3.5)
         )
         ax.text(bbox[0], bbox[1] - 2,
                 '{:s}'.format(class_name),
@@ -216,11 +234,7 @@ def caltech_eval(detpath,
         class_recs[image_identifier] = {'bbox':      bbox,
                                         'difficult': difficult,
                                         'det':       det}
-        # There might not be any objects in the picture
-        # if not recs[image_identifier]: #Check if list is empty
-        #    print 'Warn: No labels present for: ', image_identifier
 
-    # read dets
     detfile = detpath.format(classname)
     with open(detfile, 'r') as f:
         lines = f.readlines()

@@ -25,7 +25,7 @@ DEBUG = False
 
 def anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas,
                         im_info, _feat_stride=[16, ],
-                        anchor_scales=[4, 8, 16, 32], anchor_ratios=[0.5, 1, 2]):
+                        anchor_scales=[8, 16, 32], anchor_ratios=[0.5, 1, 2]):
     """
     Assign anchors to ground-truth targets. Produces anchor classification
     labels and bounding-box regression targets.
@@ -38,6 +38,7 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas,
     im_info: a list of [image_height, image_width, scale_ratios]
     _feat_stride: the downsampling ratio of feature map to the original input image
     anchor_scales: the scales to the basic_anchor (basic anchor is [16, 16])
+    anchor_ratios: aspect ratio of the anchors
     ----------
     Returns
     ----------

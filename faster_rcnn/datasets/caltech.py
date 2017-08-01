@@ -16,7 +16,7 @@ import scipy.sparse
 import cPickle
 import subprocess
 import uuid
-from caltech_utils import caltech_eval, parse_caltech_annotations
+from caltech_utils import caltech_eval, parse_caltech_annotations, parse_new_annotations
 from faster_rcnn.fast_rcnn.config import cfg
 
 
@@ -44,7 +44,7 @@ class caltech(imdb):
         self._roidb_handler = self.gt_roidb
         self._salt = str(uuid.uuid4())
         self._comp_id = 'comp4'
-        self.config['matlab_eval'] = True
+        self.config['matlab_eval'] = False
 
         assert os.path.exists(self._devkit_path), \
             'Caltech devkit path does not exist: {}'.format(self._devkit_path)
@@ -117,12 +117,8 @@ class caltech(imdb):
 
         This function loads/saves from/to a cache file to speed up future calls.
         """
-        # This is all the ground-truth annotations that are extracted from VOC/Annotations directory
-        # one-time and then stored. This is done to skip processing of VOC/Annotations
-        # for future calls (as the function header says)
         cache_file = os.path.join(self.cache_path, self.name + '_gt_roidb.pkl')
-        # govind: Forcefully re-read annotations as of now
-        if 0:  # os.path.exists(cache_file):
+        if os.path.exists(cache_file):
             with open(cache_file, 'rb') as fid:
                 roidb = cPickle.load(fid)
             print
@@ -132,24 +128,27 @@ class caltech(imdb):
             imagesetfile = os.path.join(self._data_path, 'ImageSets',
                                         self._image_set + '.txt')
 
-            # read list of images
-            with open(imagesetfile, 'r') as f:
-                lines = f.readlines()
-            imagenames = [x.strip() for x in lines]
+        # read list of images
+        with open(imagesetfile, 'r') as f:
+            lines = f.readlines()
+        imagenames = [x.strip() for x in lines]
 
-            caltech_parsed_data = parse_caltech_annotations(imagenames, os.path.join(self._data_path, 'annotations'))
-            # govind: this is reading the annotations from VOC/Annotations
-            # directory and writing them in data/cache directory.
-            # gt_roidb is a list of dictionaries. Nth element of this list
-            # is a corresponding dictionary for Nth image (which is usally
-            # different from N.jpg)
-            gt_roidb = [self._load_caltech_annotation(caltech_parsed_data, i)
-                        for i in self.image_index]
-            with open(cache_file, 'wb') as fid:
-                cPickle.dump(gt_roidb, fid, cPickle.HIGHEST_PROTOCOL)
-            print
-            'wrote gt roidb to {}'.format(cache_file)
-            return gt_roidb
+        if 'train_10x' in self._image_set:
+            caltech_parsed_data = parse_new_annotations(imagenames,
+                                                        os.path.join(self._data_path,
+                                                                     'annotations'))
+        else:
+            caltech_parsed_data = parse_caltech_annotations(imagenames,
+                                                            os.path.join(self._data_path,
+                                                                         'annotations'))
+
+        gt_roidb = [self._load_caltech_annotation(caltech_parsed_data, i)
+                    for i in self.image_index]
+        with open(cache_file, 'wb') as fid:
+            cPickle.dump(gt_roidb, fid, cPickle.HIGHEST_PROTOCOL)
+        print
+        'wrote gt roidb to {}'.format(cache_file)
+        return gt_roidb
 
     def _load_caltech_annotation(self, caltech_parsed_data, idx_image):
         """
@@ -157,66 +156,38 @@ class caltech(imdb):
         """
         # objs is a list of dictionaries. Each dictionary represents an object
         objs = caltech_parsed_data[idx_image]
-        # govind: num_objs is the number of objects in the current image
         num_objs = len(objs)
         boxes = np.zeros((num_objs, 4), dtype=np.uint16)
         gt_classes = np.zeros((num_objs), dtype=np.int32)
         overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
-        # "Seg" area for pascal is just the box area
-        seg_areas = np.zeros((num_objs), dtype=np.float32)
 
-        # Load object bounding boxes into a data frame.
-        # govind: obj is a dictionary. Containing 'lbl' and 'pol'
-        # keys.
         for ix, obj in enumerate(objs):
-            x1 = obj['bbox'][0]
-            y1 = obj['bbox'][1]
-            x2 = obj['bbox'][2]
-            y2 = obj['bbox'][3]
             cls = self._class_to_ind[obj['name']]
             boxes[ix, :] = obj['bbox']
             gt_classes[ix] = cls
             overlaps[ix, cls] = 1.0
-            seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
 
-        # govind: Converting the overlap matrix to CSR format
         overlaps = scipy.sparse.csr_matrix(overlaps)
 
-        # govind: So the <roidb> is dictionary.
-        # I believe that we're not using the values seg_areas pesent in this dictionary
-        # maybe legacy-code
-        # gt_classes is an array of size <num_objs in the image>
-        # contains name of
         return {'boxes':       boxes,
                 'gt_classes':  gt_classes,
-                # gt_classes is class index (integer). _background_ is 0
                 'gt_overlaps': overlaps,
-                'flipped':     False,
-                'seg_areas':   seg_areas}
+                'flipped':     False}
 
     def _get_comp_id(self):
         comp_id = (self._comp_id + '_' + self._salt if self.config['use_salt']
                    else self._comp_id)
         return comp_id
 
-    # govind: The results of testing:
-    # The file is stored as VOCdevkit/results/VOC2007/Main/<comp_id>_det_test_<class_name>.txt
     def _get_caltech_results_file_template(self):
         results_dir = path = os.path.join(
-            self._devkit_path, 'results');
+            self._devkit_path, 'results')
         if not os.path.isdir(results_dir):
             os.mkdir(results_dir)
         # caltech/results/<_get_comp_id>_det_test_aeroplane.txt
         filename = self._get_comp_id() + '_det_' + self._image_set + '_{:s}.txt'
         return os.path.join(results_dir, filename)
 
-    # govind:
-    # Every class has a file associated with it. The contents are
-    # <image number> <score?> <4 coordinates> e.g.
-    # 000006 0.056 1.0 2.5 388.1 237.0
-    # 000045 0.069 366.1 31.8 473.3 267.2
-    # 000045 0.056 82.9 71.5 500.0 371.6
-    # 000070 0.052 162.7 40.5 323.1 373.2
     def _write_caltech_results_file(self, all_boxes):
         for cls_ind, cls in enumerate(self.classes):
             if cls == '__background__':
@@ -312,27 +283,30 @@ class caltech(imdb):
         # log_average_mr4 = np.mean(mr4)
         np.set_printoptions(precision=3)
         # govind: Computing Mean average precision
-        print("Miss rate: {}".format(mr))
-        print("FPPI:      {}".format(fppi))
-        print('~~~~~~~~')
-        print("LAMR: {} ({})".format(log_average_mr2, log_average_mr4))
-        print('Mean AP = {:.4f}'.format(np.mean(aps)))
-        print('~~~~~~~~')
-        print('Results:')
-        for ap in aps:
-            print('{:.3f}'.format(ap))
-        print('{:.3f}'.format(np.mean(aps)))
-        print('~~~~~~~~')
-        print('')
-        print('--------------------------------------------------------------')
-        print('Results computed with the **unofficial** Python eval code.')
-        print('Results should be very close to the official MATLAB eval code.')
-        print('Recompute with `./tools/reval.py --matlab ...` for your paper.')
-        print('-- Thanks, The Management')
-        print('--------------------------------------------------------------')
+        # print("Miss rate: {}".format(mr))
+        # print("FPPI:      {}".format(fppi))
+        # print('~~~~~~~~')
+        # print("LAMR: {} ({})".format(log_average_mr2, log_average_mr4))
+        # print('Mean AP = {:.4f}'.format(np.mean(aps)))
+        # print('~~~~~~~~')
+        # print('Results:')
+        # for ap in aps:
+        #     print('{:.3f}'.format(ap))
+        # print('{:.3f}'.format(np.mean(aps)))
+        # print('~~~~~~~~')
+        # print('')
+        # print('--------------------------------------------------------------')
+        # print('Results computed with the **unofficial** Python eval code.')
+        # print('Results should be very close to the official MATLAB eval code.')
+        # print('Recompute with `./tools/reval.py --matlab ...` for your paper.')
+        # print('-- Thanks, The Management')
+        # print('--------------------------------------------------------------')
+
+        print("CURRENTLY PYTHON TESTING DOESN'T WORK, USE MATLAB")
 
         now = str(datetime.datetime.now())
-        plt.scatter(fppi, mr, label='{:3.3f} ({:3.3f})'.format(log_average_mr2, log_average_mr4), s=2)
+        plt.scatter(fppi, mr, label='{:3.3f} ({:3.3f})'.format(log_average_mr2, log_average_mr4),
+                    s=2)
         plt.ylabel("Miss rate")
         plt.xlabel("FPPI")
         plt.yscale('log')
@@ -360,7 +334,7 @@ class caltech(imdb):
 
     def evaluate_detections(self, all_boxes, output_dir):
         self._write_caltech_results_file(all_boxes)
-        self._do_python_eval(output_dir)
+        # self._do_python_eval(output_dir)
         if self.config['matlab_eval']:
             self._do_matlab_eval()
         if self.config['cleanup']:

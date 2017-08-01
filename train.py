@@ -1,7 +1,9 @@
 import os
 import torch
 import numpy as np
+import curses
 from datetime import datetime
+import shutil
 
 from faster_rcnn import network
 from faster_rcnn.faster_rcnn import FasterRCNN
@@ -28,22 +30,26 @@ def log_print(text, color=None, on_color=None, attrs=None):
         cprint(text, color=color, on_color=on_color, attrs=attrs)
     else:
         print(text)
+        print(text)
 
 
 # hyper-parameters
 # ------------
-imdb_train_name = 'caltech_train_1x'
+imdb_train_name = 'caltech_train_10x'
 imdb_val_name = 'caltech_val_1x'
 cfg_file = 'experiments/cfgs/caltech.yml'
 pretrained_model = 'data/pretrained_models/VGG_imagenet.npy'
-output_dir = 'models/saved_models'
+output_dir = 'models/saved_models2'
+
+# Copy settings so that we know what we trained
+shutil.copy2(cfg_file, output_dir)
 
 lr_decay = 1. / 10
 
 rand_seed = 42
 _DEBUG = True
-use_tensorboard = False
-remove_all_log = False  # remove all historical experiments in TensorBoard
+use_tensorboard = True
+remove_all_log = False # remove all historical experiments in TensorBoard
 exp_name = None  # the previous experiment name in TensorBoard
 
 ADAM = False
@@ -90,6 +96,12 @@ net = net.cuda()
 net.train()
 
 params = list(net.parameters())
+
+
+# stdscr = curses.initscr()
+# curses.noecho()
+# curses.cbreak()
+# stdscr.keypad(True)
 
 
 def _make_optimiser():
@@ -177,7 +189,7 @@ for step in range(start_step, end_step + 1):
                       color='white')
         re_cnt = True
 
-    if use_tensorboard and step % log_interval == 0:
+    if use_tensorboard and step % log_interval == 0 and step != 0:
         # Validation
         val_loss = 0
         val_size = 5
@@ -224,3 +236,8 @@ for step in range(start_step, end_step + 1):
         step_cnt = 0
         t.tic()
         re_cnt = False
+
+        # curses.nocbreak()
+        # stdscr.keypad(False)
+        # curses.echo()
+        # curses.endwin()
