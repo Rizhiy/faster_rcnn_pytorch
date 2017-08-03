@@ -39,17 +39,15 @@ imdb_train_name = 'caltech_train_10x'
 imdb_val_name = 'caltech_val_1x'
 cfg_file = 'experiments/cfgs/caltech.yml'
 pretrained_model = 'data/pretrained_models/VGG_imagenet.npy'
-output_dir = 'models/saved_models2'
+output_dir = 'models/saved_models'
 
 # Copy settings so that we know what we trained
 shutil.copy2(cfg_file, output_dir)
 
-lr_decay = 1. / 10
-
 rand_seed = 42
 _DEBUG = True
 use_tensorboard = True
-remove_all_log = False # remove all historical experiments in TensorBoard
+remove_all_log = False  # remove all historical experiments in TensorBoard
 exp_name = None  # the previous experiment name in TensorBoard
 
 ADAM = False
@@ -71,6 +69,7 @@ if rand_seed is not None:
 # load config
 cfg_from_file(cfg_file)
 lr = cfg.TRAIN.LEARNING_RATE
+lr_decay = cfg.TRAIN.GAMMA
 momentum = cfg.TRAIN.MOMENTUM
 weight_decay = cfg.TRAIN.WEIGHT_DECAY
 disp_interval = cfg.TRAIN.DISPLAY
@@ -97,7 +96,6 @@ net.train()
 
 params = list(net.parameters())
 
-
 # stdscr = curses.initscr()
 # curses.noecho()
 # curses.cbreak()
@@ -106,7 +104,7 @@ params = list(net.parameters())
 
 def _make_optimiser():
     if ADAM:
-        optimizer = torch.optim.Adam(params[8:], lr=lr)
+        optimizer = torch.optim.Adam(params[8:], lr=lr, weight_decay=weight_decay)
     else:
         optimizer = torch.optim.SGD(params[8:], lr=lr, momentum=momentum, weight_decay=weight_decay)
     return optimizer

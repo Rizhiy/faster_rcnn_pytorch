@@ -94,6 +94,8 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
     avg_fps = 5
     last_time = time.time() - 1
     display_freq = 10
+    if vis:
+        display_freq = 1
     bar_length = 50
     for i in range(num_images):
 
@@ -134,12 +136,12 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
             now = time.time()
             fps = float(display_freq) / (now - last_time)
             last_time = now
-            avg_fps = avg_fps * 0.9 + fps * 0.1
+            avg_fps = avg_fps * (1 - 0.01 * display_freq) + fps * 0.01 * display_freq
             seconds_remaining = datetime.timedelta(seconds=int((num_images - i) / avg_fps))
             sys.stdout.write("\r" + " " * (bar_length + 100))
             sys.stdout.flush()
             sys.stdout.write("\rTesting: [{}] {:3d}%; {:3.2f} FPS; Time remaining: {}".
-                             format(arrow + spaces, int(percent * 100), fps, seconds_remaining))
+                             format(arrow + spaces, int(percent * 100), avg_fps, seconds_remaining))
             sys.stdout.flush()
 
             if vis:

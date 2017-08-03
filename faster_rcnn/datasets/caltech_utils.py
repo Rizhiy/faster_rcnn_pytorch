@@ -73,12 +73,12 @@ def parse_caltech_annotations(image_identifiers, ann_dir):
     return recs
 
 
-def parse_new_annotations(image_identifiers, ann_dir):
+def parse_new_annotations(image_identifiers, ann_dir, set_dir='new_train_10x'):
     recs = {}
     image_wd = 640
     image_ht = 480
 
-    ann_dir = os.path.join(ann_dir, 'new_train_10x')
+    ann_dir = os.path.join(ann_dir, set_dir)
 
     for img in image_identifiers:
         path_split = img.split('/')
@@ -103,37 +103,6 @@ def parse_new_annotations(image_identifiers, ann_dir):
                 objs.append(obj_datum)
             recs[img] = objs
     return recs
-
-
-def vis_annotations(image_identifier, dets):
-    """Draw detected bounding boxes."""
-    import cv2
-    import matplotlib.pyplot as plt
-    plt.switch_backend('agg')
-    im = cv2.imread(os.path.join('/media/disk2/govind/work/dataset/caltech/data/JPEGImages',
-                                 image_identifier + '.jpg'))
-    inds = dets
-    if len(inds) == 0:
-        return
-    im = im[:, :, (2, 1, 0)]
-    fig, ax = plt.subplots(figsize=(12, 12))
-    ax.imshow(im, aspect='equal')
-    for obj in inds:
-        bbox = obj['bbox']
-        # print bbox
-        class_name = obj['name']
-        ax.add_patch(
-            plt.Rectangle(((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2),
-                          bbox[2] - bbox[0], bbox[3] - bbox[1],
-                          fill=False, edgecolor='red', linewidth=3.5)
-        )
-        ax.text(bbox[0], bbox[1] - 2,
-                '{:s}'.format(class_name),
-                bbox=dict(facecolor='blue', alpha=0.5),
-                fontsize=14, color='white')
-    plt.axis('off')
-    plt.tight_layout()
-    plt.savefig(image_identifier + '_ann.jpg')
 
 
 def caltech_ap(rec, prec, use_07_metric=False):

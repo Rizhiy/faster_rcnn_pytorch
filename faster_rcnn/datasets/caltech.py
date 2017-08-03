@@ -27,8 +27,7 @@ class caltech(imdb):
 
         imdb.__init__(self, 'caltech_' + image_set)
         self._image_set = image_set
-        self._devkit_path = self._get_default_path() if devkit_path is None \
-            else devkit_path
+        self._devkit_path = self._get_default_path() if devkit_path is None else devkit_path
         self._data_path = self._devkit_path
         self._classes = ('__background__',  # always index 0
                          'person')
@@ -199,8 +198,8 @@ class caltech(imdb):
             lastseq = None
             f = None
             # Caltech expects results for every sequence in a separate file with each set represented by a folder
-            for im_ind, index in enumerate(self.image_index):
-                idx_split = index.split('/')
+            for im_ind, img_name in enumerate(self.image_index):
+                idx_split = img_name.split('/')
                 set = idx_split[0]
                 if set != lastset:
                     dir = os.path.join(self._devkit_path, 'results', 'matlab_results', set)
@@ -228,14 +227,14 @@ class caltech(imdb):
                     f.write('{},{},{},{},{},{}\n'.format(idx_split[2], x, y, w, h, dets[i, -1]))
 
             with open(filename, 'wt') as f:
-                for im_ind, index in enumerate(self.image_index):
+                for im_ind, img_name in enumerate(self.image_index):
                     dets = all_boxes[cls_ind][im_ind]
                     if dets == []:
                         continue
                     # the VOCdevkit expects 1-based indices
                     for k in xrange(dets.shape[0]):
                         f.write('{:s} {:.3f} {:.1f} {:.1f} {:.1f} {:.1f}\n'.
-                                format(index, dets[k, -1],
+                                format(img_name, dets[k, -1],
                                        dets[k, 0] + 1, dets[k, 1] + 1,
                                        dets[k, 2] + 1, dets[k, 3] + 1))
 
