@@ -66,8 +66,7 @@ def parse_caltech_annotations(image_identifiers, ann_dir):
         if image_id in data[image_set_name][image_seq_name]:
             recs[image_identifier] = data[image_set_name][image_seq_name][image_id]
         else:
-            print
-            "Warning: No %s.jpg found in annotations" % (image_identifier)
+            print "Warning: No %s.jpg found in annotations" % (image_identifier)
 
             # vis_annotations(image_identifier, recs[image_identifier])
     return recs
@@ -99,7 +98,6 @@ def parse_new_annotations(image_identifiers, ann_dir, set_dir='new_train_10x'):
                 obj_datum = dict()
                 obj_datum['name'] = type
                 obj_datum['bbox'] = bbox
-                obj_datum['difficult'] = 0
                 objs.append(obj_datum)
             recs[img] = objs
     return recs
@@ -179,8 +177,7 @@ def caltech_eval(detpath,
         # govind: recs is a dictionary with <image_identifier> as keys
         recs = parse_caltech_annotations(image_identifiers, annopath)
         # save
-        print
-        'Saving cached annotations to {:s}'.format(cachefile)
+        print 'Saving cached annotations to {:s}'.format(cachefile)
         with open(cachefile, 'w') as f:
             cPickle.dump(recs, f)
     else:

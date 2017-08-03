@@ -30,7 +30,7 @@ class caltech(imdb):
         self._devkit_path = self._get_default_path() if devkit_path is None else devkit_path
         self._data_path = self._devkit_path
         self._classes = ('__background__',  # always index 0
-                         'person')
+                         'person', 'ignore')
 
         # govind: num_classes is set based on the number of classes in _classes tuple
         self._class_to_ind = dict(zip(self.classes, xrange(self.num_classes)))
@@ -120,8 +120,7 @@ class caltech(imdb):
         if os.path.exists(cache_file):
             with open(cache_file, 'rb') as fid:
                 roidb = cPickle.load(fid)
-            print
-            '{} gt roidb loaded from {}'.format(self.name, cache_file)
+            print '{} gt roidb loaded from {}'.format(self.name, cache_file)
             return roidb
         else:
             imagesetfile = os.path.join(self._data_path, 'ImageSets',
@@ -145,8 +144,7 @@ class caltech(imdb):
                     for i in self.image_index]
         with open(cache_file, 'wb') as fid:
             cPickle.dump(gt_roidb, fid, cPickle.HIGHEST_PROTOCOL)
-        print
-        'wrote gt roidb to {}'.format(cache_file)
+        print 'wrote gt roidb to {}'.format(cache_file)
         return gt_roidb
 
     def _load_caltech_annotation(self, caltech_parsed_data, idx_image):
@@ -318,12 +316,9 @@ class caltech(imdb):
                     orientation="landscape", bbox_inches='tight')
 
     def _do_matlab_eval(self):
-        print
-        '-----------------------------------------------------'
-        print
-        'Computing results with the official MATLAB eval code.'
-        print
-        '-----------------------------------------------------'
+        print '-----------------------------------------------------'
+        print 'Computing results with the official MATLAB eval code.'
+        print '-----------------------------------------------------'
         path = os.path.join(self._devkit_path, 'evaluation_code')
         cmd = 'cd {} && '.format(path)
         cmd += '{:s} -nodisplay -nodesktop -r dbEval'.format(cfg.MATLAB)
