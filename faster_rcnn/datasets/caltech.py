@@ -21,7 +21,7 @@ from faster_rcnn.fast_rcnn.config import cfg
 
 
 class caltech(imdb):
-    def __init__(self, image_set, devkit_path=None):
+    def __init__(self, image_set, devkit_path=None, big=False):
         # govind: values of image_set is "train", "test" or "val"
         # govind: devkit_path is path to dataset directory
 
@@ -30,7 +30,7 @@ class caltech(imdb):
         self._devkit_path = self._get_default_path() if devkit_path is None else devkit_path
         self._data_path = self._devkit_path
         self._classes = ('__background__',  # always index 0
-                         'person', 'ignore')
+                         'person')
 
         # govind: num_classes is set based on the number of classes in _classes tuple
         self._class_to_ind = dict(zip(self.classes, xrange(self.num_classes)))
@@ -44,6 +44,7 @@ class caltech(imdb):
         self._salt = str(uuid.uuid4())
         self._comp_id = 'comp4'
         self.config['matlab_eval'] = False
+        self._big = big
 
         assert os.path.exists(self._devkit_path), \
             'Caltech devkit path does not exist: {}'.format(self._devkit_path)
@@ -54,7 +55,10 @@ class caltech(imdb):
         """
         Return the absolute path to image i in the image sequence.
         """
-        image_path = os.path.join(self._data_path, 'images',
+        image_dir = 'images'
+        if self._big:
+            image_dir += '_big'
+        image_path = os.path.join(self._data_path, image_dir,
                                   self._image_index[i] + self._image_ext)
         assert os.path.exists(image_path), \
             'Path does not exist: {}'.format(image_path)
@@ -117,7 +121,7 @@ class caltech(imdb):
         This function loads/saves from/to a cache file to speed up future calls.
         """
         cache_file = os.path.join(self.cache_path, self.name + '_gt_roidb.pkl')
-        if os.path.exists(cache_file):
+        if 0:
             with open(cache_file, 'rb') as fid:
                 roidb = cPickle.load(fid)
             print '{} gt roidb loaded from {}'.format(self.name, cache_file)
@@ -132,13 +136,11 @@ class caltech(imdb):
         imagenames = [x.strip() for x in lines]
 
         if 'train_10x' in self._image_set:
-            caltech_parsed_data = parse_new_annotations(imagenames,
-                                                        os.path.join(self._data_path,
-                                                                     'annotations'))
+            caltech_parsed_data = parse_new_annotations(
+                imagenames, os.path.join(self._data_path, 'annotations'), big=self._big)
         else:
-            caltech_parsed_data = parse_caltech_annotations(imagenames,
-                                                            os.path.join(self._data_path,
-                                                                         'annotations'))
+            caltech_parsed_data = parse_caltech_annotations(
+                imagenames, os.path.join(self._data_path, 'annotations'), big=self._big)
 
         gt_roidb = [self._load_caltech_annotation(caltech_parsed_data, i)
                     for i in self.image_index]
@@ -187,7 +189,7 @@ class caltech(imdb):
 
     def _write_caltech_results_file(self, all_boxes):
         for cls_ind, cls in enumerate(self.classes):
-            if cls == '__background__':
+            if cls != 'person':
                 continue
             print 'Writing {} caltech results file'.format(cls)
             filename = self._get_caltech_results_file_template().format(cls)
@@ -222,6 +224,8 @@ class caltech(imdb):
                     h = dets[i, 3] - dets[i, 1]
                     x -= w / 2
                     y -= h / 2
+                    if self._big:
+                        x, y, w, h = x / 2, y / 2, w / 2, h / 2
                     f.write('{},{},{},{},{},{}\n'.format(idx_split[2], x, y, w, h, dets[i, -1]))
 
             with open(filename, 'wt') as f:
@@ -240,7 +244,7 @@ class caltech(imdb):
     # performance of network by comparing the
     # It is executed at the end of testing and is called by
     # lib/fast_rcnn/test_net()
-    def _do_python_eval(self, output_dir='output'):
+    def _do_python_eval(self, all_boxes, output_dir='output'):
         annopath = os.path.join(self._data_path, 'annotations')
         imagesetfile = os.path.join(self._data_path, 'ImageSets', self._image_set + '.txt')
 
@@ -259,8 +263,8 @@ class caltech(imdb):
             # govind: It's calling a function which will give Precision, Recall and
             # average precision if we pass it the _results_file
             rec, prec, ap, mr, fppi = caltech_eval(
-                filename, annopath, imagesetfile, cls, cachedir, ovthresh=0.5,
-                use_07_metric=True)
+                filename, annopath, imagesetfile, cls, cachedir,all_boxes, ovthresh=0.5,
+                use_07_metric=True, big=self._big)
             aps += [ap]
             print('AP for {} = {:.4f}'.format(cls, ap))
             with open(os.path.join(output_dir, cls + '_pr.pkl'), 'w') as f:
@@ -328,13 +332,13 @@ class caltech(imdb):
 
     def evaluate_detections(self, all_boxes, output_dir):
         self._write_caltech_results_file(all_boxes)
-        # self._do_python_eval(output_dir)
+        self._do_python_eval(all_boxes, output_dir)
         if self.config['matlab_eval']:
             self._do_matlab_eval()
         if self.config['cleanup']:
             # govind: Remove the temp result files
             for cls in self._classes:
-                if cls == '__background__':
+                if cls != 'person':
                     continue
                 filename = self._get_caltech_results_file_template().format(cls)
                 os.remove(filename)

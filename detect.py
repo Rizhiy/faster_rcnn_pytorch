@@ -18,10 +18,10 @@ from faster_rcnn.fast_rcnn.config import cfg, cfg_from_file, get_output_dir
 
 # hyper-parameters
 # ------------
-model_dir = 'models/saved_models/'
+model_dir = 'models/saved_models1/'
 imdb_name = 'detection'
 cfg_file = os.path.join(model_dir, 'caltech.yml')
-trained_model = os.path.join(model_dir, 'faster_rcnn_140000.h5')
+trained_model = os.path.join(model_dir, 'faster_rcnn_100000.h5')
 
 rand_seed = 42
 
@@ -150,7 +150,7 @@ def detect(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
     with open(det_file, 'wb') as f:
         cPickle.dump(all_boxes, f, cPickle.HIGHEST_PROTOCOL)
 
-    print 'Evaluating detections'
+    print 'Writing results'
     imdb.write_results(all_boxes)
 
 
@@ -183,6 +183,8 @@ if __name__ == '__main__':
     # detect people in each frame
     detect(save_name, net, imdb, max_per_image, thresh=thresh, vis=vis)
     # Convert frames to video
+    print "Assembling video:",
     os.system("cd ~/pedestrian-detection/detection/ &&"
               " ffmpeg -framerate {} -i results/%05d.jpg output-{}FPS.mov".format(args.fps,
                                                                                   args.fps))
+    print("Done")

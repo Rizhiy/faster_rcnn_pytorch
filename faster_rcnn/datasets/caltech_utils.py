@@ -12,7 +12,7 @@ import cPickle
 import numpy as np
 
 
-def parse_caltech_annotations(image_identifiers, ann_dir):
+def parse_caltech_annotations(image_identifiers, ann_dir, big=False):
     # recs is a dictionary with keys as image_identifier.
     # value is a list of dictionaries where each dictionary belongs
     # to an object
@@ -22,6 +22,9 @@ def parse_caltech_annotations(image_identifiers, ann_dir):
     data = defaultdict(dict)
     image_wd = 640
     image_ht = 480
+    if big:
+        image_wd *= 2
+        image_ht *= 2
 
     # Parse all the annotations and store
     for dname in sorted(glob.glob(ann_dir + '/set*')):
@@ -45,6 +48,9 @@ def parse_caltech_annotations(image_identifiers, ann_dir):
                         pos[1] = np.clip(pos[1], 0, image_ht)
                         pos[2] = np.clip(pos[0] + pos[2], 0, image_wd)
                         pos[3] = np.clip(pos[1] + pos[3], 0, image_ht)
+                        pos = np.array(pos)
+                        if big:
+                            pos *= 2
                         datum = dict(zip(keys, [id, pos]))
                         obj_datum = dict()
                         obj_datum['name'] = str(objLbl[datum['id']])
@@ -72,10 +78,13 @@ def parse_caltech_annotations(image_identifiers, ann_dir):
     return recs
 
 
-def parse_new_annotations(image_identifiers, ann_dir, set_dir='new_train_10x'):
+def parse_new_annotations(image_identifiers, ann_dir, set_dir='new_train_10x', big=False):
     recs = {}
     image_wd = 640
     image_ht = 480
+    if big:
+        image_wd *= 2
+        image_ht *= 2
 
     ann_dir = os.path.join(ann_dir, set_dir)
 
@@ -95,6 +104,8 @@ def parse_new_annotations(image_identifiers, ann_dir, set_dir='new_train_10x'):
                 bbox[1] = np.clip(pos[1], 0, image_ht)
                 bbox[2] = np.clip(pos[0] + pos[2], 0, image_wd)
                 bbox[3] = np.clip(pos[1] + pos[3], 0, image_ht)
+                if big:
+                    bbox *= 2
                 obj_datum = dict()
                 obj_datum['name'] = type
                 obj_datum['bbox'] = bbox
@@ -142,8 +153,10 @@ def caltech_eval(detpath,
                  imagesetfile,
                  classname,
                  cachedir,
+                 boxes,
                  ovthresh=0.5,
-                 use_07_metric=False):
+                 use_07_metric=False,
+                 big=False):
     """
     Top level function that does the PASCAL VOC evaluation.
 
@@ -172,10 +185,11 @@ def caltech_eval(detpath,
         lines = f.readlines()
     image_identifiers = [x.strip() for x in lines]
 
-    if 1:  # load new anotations unconditionally in case test data have changed
+    if not os.path.exists(cachefile):  # load new anotations unconditionally in case test data have
+        # changed
         # load annots
         # govind: recs is a dictionary with <image_identifier> as keys
-        recs = parse_caltech_annotations(image_identifiers, annopath)
+        recs = parse_caltech_annotations(image_identifiers, annopath, big=big)
         # save
         print 'Saving cached annotations to {:s}'.format(cachefile)
         with open(cachefile, 'w') as f:

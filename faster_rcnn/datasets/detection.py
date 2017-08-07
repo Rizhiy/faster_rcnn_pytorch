@@ -12,12 +12,12 @@ from faster_rcnn.fast_rcnn.config import cfg
 
 
 class detection(imdb):
-    def __init__(self, data_path=None, draw_conf=True, conf=0.6):
+    def __init__(self, data_path=None, draw_conf=True, conf=0.5):
         imdb.__init__(self, 'detect')
         self._image_set = 'detect'
         self._data_path = self._get_default_path() if data_path is None else data_path
         self._classes = ('__background__',  # always index 0
-                         'person')
+                         'person', 'ignore')
         # govind: num_classes is set based on the number of classes in _classes tuple
         self._class_to_ind = dict(zip(self.classes, xrange(self.num_classes)))
         self._image_ext = '.jpg'

@@ -35,11 +35,11 @@ def log_print(text, color=None, on_color=None, attrs=None):
 
 # hyper-parameters
 # ------------
-imdb_train_name = 'caltech_train_10x'
+imdb_train_name = 'combined'
 imdb_val_name = 'caltech_val_1x'
 cfg_file = 'experiments/cfgs/caltech.yml'
 pretrained_model = 'data/pretrained_models/VGG_imagenet.npy'
-output_dir = 'models/saved_models'
+output_dir = 'models/saved_models1'
 
 # Copy settings so that we know what we trained
 shutil.copy2(cfg_file, output_dir)
@@ -51,7 +51,7 @@ remove_all_log = False  # remove all historical experiments in TensorBoard
 exp_name = None  # the previous experiment name in TensorBoard
 
 ADAM = False
-QUICK = True
+QUICK = False
 
 start_step = 0
 if QUICK:
@@ -76,13 +76,15 @@ disp_interval = cfg.TRAIN.DISPLAY
 log_interval = cfg.TRAIN.LOG_IMAGE_ITERS
 
 # load data
+# train
 imdb_train = get_imdb(imdb_train_name)
-imdb_val = get_imdb(imdb_val_name)
 rdl_roidb.prepare_roidb(imdb_train)
 roidb_train = imdb_train.roidb
+data_layer_train = RoIDataLayer(roidb_train, imdb_train.num_classes)
+# val
+imdb_val = get_imdb(imdb_val_name)
 rdl_roidb.prepare_roidb(imdb_val)
 roidb_val = imdb_val.roidb
-data_layer_train = RoIDataLayer(roidb_train, imdb_train.num_classes)
 data_layer_val = RoIDataLayer(roidb_val, imdb_val.num_classes)
 
 # load net

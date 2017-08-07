@@ -18,16 +18,16 @@ from faster_rcnn.fast_rcnn.config import cfg, cfg_from_file, get_output_dir
 
 # hyper-parameters
 # ------------
-model_dir = 'models/saved_models1/'
+model_dir = 'models/saved_models2/'
 imdb_name = 'caltech_test_1x'
 cfg_file = os.path.join(model_dir, 'caltech.yml')
-trained_model = os.path.join(model_dir, 'faster_rcnn_140000.h5')
+trained_model = os.path.join(model_dir, 'faster_rcnn_300000.h5')
 
 rand_seed = 42
 
 save_name = 'faster_rcnn_100000'
 max_per_image = 300
-thresh = 5e-5
+thresh = 1e-5
 vis = False
 
 # ------------

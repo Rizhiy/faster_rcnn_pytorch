@@ -39,10 +39,10 @@ class RPN(nn.Module):
             self.anchor_ratios = cfg.ANCHOR_RATIOS
         self.features = VGG16(bn=False)
         self.conv1 = Conv2d(512, 512, 3, same_padding=True)
-        self.score_conv = Conv2d(512, len(self.anchor_scales) * 3 * 2, 1, relu=False,
-                                 same_padding=False)
-        self.bbox_conv = Conv2d(512, len(self.anchor_scales) * 3 * 4, 1, relu=False,
-                                same_padding=False)
+        self.score_conv = Conv2d(512, len(self.anchor_scales) * len(self.anchor_ratios) * 2, 1,
+                                 relu=False, same_padding=False)
+        self.bbox_conv = Conv2d(512, len(self.anchor_scales) * len(self.anchor_ratios) * 4, 1,
+                                relu=False, same_padding=False)
 
         # loss
         self.cross_entropy = None
@@ -63,7 +63,9 @@ class RPN(nn.Module):
         rpn_cls_score = self.score_conv(rpn_conv1)
         rpn_cls_score_reshape = self.reshape_layer(rpn_cls_score, 2)
         rpn_cls_prob = F.softmax(rpn_cls_score_reshape)
-        rpn_cls_prob_reshape = self.reshape_layer(rpn_cls_prob, len(self.anchor_scales) * 3 * 2)
+        rpn_cls_prob_reshape = self.reshape_layer(rpn_cls_prob,
+                                                  len(self.anchor_scales) * len(
+                                                      self.anchor_ratios) * 2)
 
         # rpn boxes
         rpn_bbox_pred = self.bbox_conv(rpn_conv1)
@@ -71,7 +73,8 @@ class RPN(nn.Module):
         # proposal layer
         cfg_key = 'TRAIN' if self.training else 'TEST'
         rois = self.proposal_layer(rpn_cls_prob_reshape, rpn_bbox_pred, im_info,
-                                   cfg_key, self._feat_stride, self.anchor_scales)
+                                   cfg_key, self._feat_stride, self.anchor_scales,
+                                   self.anchor_ratios)
 
         # generating training labels and build the rpn loss
         if self.training:
@@ -124,11 +127,11 @@ class RPN(nn.Module):
 
     @staticmethod
     def proposal_layer(rpn_cls_prob_reshape, rpn_bbox_pred, im_info, cfg_key, _feat_stride,
-                       anchor_scales):
+                       anchor_scales, anchor_ratios):
         rpn_cls_prob_reshape = rpn_cls_prob_reshape.data.cpu().numpy()
         rpn_bbox_pred = rpn_bbox_pred.data.cpu().numpy()
         x = proposal_layer_py(rpn_cls_prob_reshape, rpn_bbox_pred, im_info, cfg_key, _feat_stride,
-                              anchor_scales)
+                              anchor_scales, anchor_ratios)
         x = network.np_to_variable(x, is_cuda=True)
         return x.view(-1, 5)
 
